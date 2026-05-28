@@ -16,10 +16,13 @@ def download_aon_data(category = 'alchemical',output_file=None):
         # Simplified search call to avoid version-specific body wrappers
         response = es.search(
             index="aon",
-            query={
-                "match": {
-                     "item_category": "Alchemical Items",
-                }
+                        query={
+                    "bool": {
+                        "must": [
+                            {"match_phrase": {"item_category": "Alchemical Items"}},
+                            {"term": {"category": "equipment"}}
+                        ]
+                    }
             },
             size=10000
         )
