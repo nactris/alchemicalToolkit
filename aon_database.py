@@ -7,14 +7,15 @@ from elasticsearch import Elasticsearch
 class AlchemicalDatabase:
     def __init__(self, db_name: str = "alchemical_items.db"):
         self.db_name = db_name
-        self._create_table()
+        self._create_item_table()
+        self._create_trait_table()
 
     def _get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_name)
         conn.row_factory = sqlite3.Row  
         return conn
 
-    def _create_table(self):
+    def _create_item_table(self):
         with self._get_connection() as conn:
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS alchemical_items (
@@ -43,6 +44,35 @@ class AlchemicalDatabase:
                 INSERT OR REPLACE INTO alchemical_items (id, name, level, subcategory, full_raw_data)
                 VALUES (?, ?, ?, ?, ?)
             ''', (item_id, name, level, subcategory, full_raw_data))
+
+    def _create_trait_table(self):
+
+        with self._get_connection() as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS traits (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    full_raw_data TEXT NOT NULL
+                )
+            ''')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_name ON traits(name)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_id ON traits(id)')
+
+    def save_trait(self, trait_json: Dict[str, Any]):
+        name = trait_json.get("name")
+        id = trait_json.get("id")
+        full_raw_data = json.dumps(trait_json)
+
+        if not name:
+            return  
+
+        with self._get_connection() as conn:
+            conn.execute('''
+                INSERT OR REPLACE INTO traits (id, name, full_raw_data)
+                VALUES (?, ?, ?)
+               ''', (id, name, full_raw_data))
+
+   
 
     def filter_items(self, 
                      name: Optional[str] = None, 
@@ -111,9 +141,44 @@ class AlchemicalDatabase:
         with self._get_connection() as conn:
             cursor = conn.execute(query, params)
             return [json.loads(row[0]) for row in cursor.fetchall()]
+    
+    def filter_traits(self, 
+                     name: Optional[str] = None, 
+                     only_legacy = False,
+                     only_remaster = True):
+
+        query = "SELECT DISTINCT full_raw_data FROM traits WHERE 1=1"
+        params = []
+
+        if name:
+            query += " AND name LIKE ?"
+            params.append(f"%{name}%")
+
+        if only_legacy:
+            query += """ AND json_type(full_raw_data, '$.legacy_id') IS NOT NULL"""
+
+        if only_remaster:
+            query += """ AND json_type(full_raw_data, '$.remaster_id') IS NOT NULL"""
+
+        with self._get_connection() as conn:
+            cursor = conn.execute(query, params)
+            return [json.loads(row[0]) for row in cursor.fetchall()]
+   
+    
+    def get_all_traits(self) -> List[str]:
+        query = """
+            SELECT json_group_array(DISTINCT json_each.value) 
+            FROM alchemical_items, 
+                 json_each(alchemical_items.full_raw_data, '$.trait')
+        """
+        with self._get_connection() as conn:
+            cursor = conn.execute(query)
+            row = cursor.fetchone()
+            traits_list = json.loads(row[0]) if row[0] else []
+            return sorted(traits_list)
 
 
-def download_database(db_instance: AlchemicalDatabase):
+def download_database(db_instance: AlchemicalDatabase, save_json=False):
     es = Elasticsearch(
         "https://elasticsearch.aonprd.com/",
         headers={"Accept": "application/json", "Content-Type": "application/json"}
@@ -135,12 +200,20 @@ def download_database(db_instance: AlchemicalDatabase):
         )
         hits = response.get('hits', {}).get('hits', [])
         raw_items = [hit['_source'] for hit in hits]
+        if save_json:
+            with open(f"pf2e_alchemical_items.json", 'w', encoding='utf-8') as f:
+                json.dump(raw_items, f, indent=4, ensure_ascii=False)
+
         print(f"Successfully retrieved {len(raw_items)} records from online index.")
 
         print("Populating local database...")
         for item in raw_items:
             db_instance.save_item(item)
+
+        print("Downloading trait descriptions...")
+        download_traits(db_instance)
         print("Database sync complete!\n")
+
 
     except Exception as e:
         print(f"Failed to sync data from online database: {e}")
@@ -155,58 +228,48 @@ def download_database(db_instance: AlchemicalDatabase):
         return prices[level]
 
 
-'''
-if __name__ == "__main__":
-    # Initialize database orchestrator
-    db = AlchemicalDatabase("alchemical_items.db")
+def download_traits(db_instance: AlchemicalDatabase, save_json=True):
+    local_traits = db_instance.get_all_traits()
     
-    # Sync online data down to local database
-    download_database(db)
+    if not local_traits:
+        print("No items found in local database. Sync your alchemical items first!")
+        return
 
-    print("-" * 50)
-    print("DEMO 1: Standard Multi-Column Filter & Member Access")
-    print("-" * 50)
-    
-    # Query for Level 0 items categorized specifically as "Drugs"
-    drugs = db.filter_items(subcategory="Drugs", level=0)
-    print(f"Found {len(drugs)} matches.")
-    
-    for item in drugs[:3]:  # Display up to 3 matches
-        # Accessing top-level database filter columns
-        print(f"\nItem ID:     {item.get('id')}")
-        print(f"Name:        {item.get('name')} (Level {item.get('level')})")
-        print(f"Subcategory: {item.get('item_subcategory')}")
-        
-        # Accessing pristine unindexed archive fields stored inside the JSON blob
-        print(f"Price (Raw): {item.get('price_raw')}")
-        print(f"Source:      {item.get('primary_source')}")
-        print(f"Traits List: {', '.join(item.get('trait', []))}")
+    print(f"Found {len(local_traits)} unique traits in your database items.")
 
-
-    print("\n" + "-" * 50)
-    print("DEMO 2: Advanced Logical Trait Matrix Filtering")
-    print("-" * 50)
-    
-    # Search for items that are 'Alchemical' AND 'Consumable', but NOT 'Poison'
-    filtered_traits = db.filter_items(
-        traits={
-            "and": ["Fire"]
-        }
+    es = Elasticsearch(
+        "https://elasticsearch.aonprd.com/",
+        headers={"Accept": "application/json", "Content-Type": "application/json"}
     )
-    print(f"Found {len(filtered_traits)} items matching the specified trait logic matrix.")
-    if filtered_traits:
-        for i in range(0,10):
-            print(f"Example Match: {filtered_traits[i].get('name')} | Current Traits: {filtered_traits[i].get('trait')}")
 
+    print("Querying AoN for matching trait metadata updates...")
+    try:
+        query_body = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {"term": {"category": "trait"}},
+                        {"terms": {"name": [t.lower() for t in local_traits]}}
+                    ]
+                }
+            },
+            "size": 1000
+        }
 
-    print("\n" + "-" * 50)
-    print("DEMO 3: Keyword Text Summary Scan")
-    print("-" * 50)
-    
-    # Scan long text strings nested deep inside summaries
-    military_gear = db.filter_items(summary="soldier")
-    print(f"Found {len(military_gear)} items mentioning 'soldier' inside their text summaries.")
-    for item in military_gear:
-        print(f"- {item.get('name')}: \"{item.get('summary')[:75]}...\"")
+        response = es.search(index="aon", body=query_body)
+        hits = response.get('hits', {}).get('hits', [])
+        raw_items = [hit['_source'] for hit in hits]
 
-        '''
+        if save_json:
+            with open(f"pf2e_traits.json", 'w', encoding='utf-8') as f:
+                json.dump(raw_items, f, indent=4, ensure_ascii=False)
+
+        print(f"Downloaded {len(hits)} matching trait records from online index.")
+
+  
+        for trait in raw_items:
+            db_instance.save_trait(trait)
+        print(f"Success! Saved {len(raw_items)} trait definitions.")
+
+    except Exception as e:
+        print(f"Failed to fetch trait definitions: {e}")
