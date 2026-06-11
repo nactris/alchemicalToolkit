@@ -2,14 +2,14 @@ import json
 import sqlite3
 from typing import Dict, List, Any, Optional
 from elasticsearch import Elasticsearch
-
+import asyncio
 
 class AlchemicalDatabase:
     def __init__(self, db_name: str = "alchemical_items.db"):
         self.db_name = db_name
         self._create_item_table()
         self._create_trait_table()
-
+    
     def _get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_name)
         conn.row_factory = sqlite3.Row  
@@ -52,6 +52,7 @@ class AlchemicalDatabase:
                 CREATE TABLE IF NOT EXISTS traits (
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
+                    description TEXT NOT NULL,
                     full_raw_data TEXT NOT NULL
                 )
             ''')
@@ -61,6 +62,7 @@ class AlchemicalDatabase:
     def save_trait(self, trait_json: Dict[str, Any]):
         name = trait_json.get("name")
         id = trait_json.get("id")
+        description = trait_json.get("text")
         full_raw_data = json.dumps(trait_json)
 
         if not name:
@@ -68,11 +70,9 @@ class AlchemicalDatabase:
 
         with self._get_connection() as conn:
             conn.execute('''
-                INSERT OR REPLACE INTO traits (id, name, full_raw_data)
-                VALUES (?, ?, ?)
-               ''', (id, name, full_raw_data))
-
-   
+                INSERT OR REPLACE INTO traits (id, name, description, full_raw_data)
+                VALUES (?, ?, ?, ?)
+               ''', (id, name, description, full_raw_data))
 
     def filter_items(self, 
                      name: Optional[str] = None, 
@@ -81,6 +81,10 @@ class AlchemicalDatabase:
                      max_level: Optional[int] = None,  
                      skill: Optional[str] = None, 
                      summary: Optional[str] = None, 
+                     legacy_only = False,
+                     remaster_only = True,
+                     hide_excluded = True,
+                     is_outer_item = True,
                      traits: Optional[Dict[str, List[str]]] = None) -> List[Dict[str, Any]]:
 
         query = "SELECT DISTINCT full_raw_data FROM alchemical_items WHERE 1=1"
@@ -113,7 +117,23 @@ class AlchemicalDatabase:
         if summary:
             query += " AND json_extract(full_raw_data, '$.summary') LIKE ?"
             params.append(f"%{summary}%")
+        
+        if legacy_only:
+            query += """ AND json_type(full_raw_data, '$.legacy_id') IS NULL"""
 
+        if remaster_only:
+            query += """ AND json_type(full_raw_data, '$.remaster_id') IS NULL"""
+
+        if hide_excluded:
+            query += """ AND (
+                json_type(full_raw_data, '$.exclude_from_search') IS NOT NULL 
+                AND json_extract(full_raw_data, '$.exclude_from_search') = 0
+            )"""
+
+        if is_outer_item:
+            query += """ AND (
+            json_type(full_raw_data, '$.item_parent_id') IS NULL
+            )"""
         if traits:
             for tag in traits.get("and", []):
                 query += """ AND EXISTS (
@@ -137,15 +157,29 @@ class AlchemicalDatabase:
                     WHERE json_each.value LIKE ?
                 )"""
                 params.append(tag)
+            
 
         with self._get_connection() as conn:
             cursor = conn.execute(query, params)
             return [json.loads(row[0]) for row in cursor.fetchall()]
     
+
+    def get_trait_description(self, trait: str):
+        query = """
+           SELECT description FROM traits WHERE LOWER(name) = LOWER(?)
+            ORDER BY CASE 
+            WHEN json_type(full_raw_data, '$.legacy_id') IS NOT NULL THEN 0 
+            ELSE 1 END ASC LIMIT 1; """
+
+        with self._get_connection() as conn:
+            cursor = conn.execute(query,[trait])
+            return cursor.fetchone()[0]
+
+
     def filter_traits(self, 
                      name: Optional[str] = None, 
-                     only_legacy = False,
-                     only_remaster = True):
+                     legacy_only = False,
+                     remaster_only = True):
 
         query = "SELECT DISTINCT full_raw_data FROM traits WHERE 1=1"
         params = []
@@ -154,11 +188,11 @@ class AlchemicalDatabase:
             query += " AND name LIKE ?"
             params.append(f"%{name}%")
 
-        if only_legacy:
-            query += """ AND json_type(full_raw_data, '$.legacy_id') IS NOT NULL"""
+        if legacy_only:
+            query += """ AND json_type(full_raw_data, '$.legacy_id') IS NULL"""
 
-        if only_remaster:
-            query += """ AND json_type(full_raw_data, '$.remaster_id') IS NOT NULL"""
+        if remaster_only:
+            query += """ AND json_type(full_raw_data, '$.remaster_id') IS NULL"""
 
         with self._get_connection() as conn:
             cursor = conn.execute(query, params)
@@ -178,7 +212,7 @@ class AlchemicalDatabase:
             return sorted(traits_list)
 
 
-def download_database(db_instance: AlchemicalDatabase, save_json=False):
+async def download_database(db_instance: AlchemicalDatabase, save_json=False):
     es = Elasticsearch(
         "https://elasticsearch.aonprd.com/",
         headers={"Accept": "application/json", "Content-Type": "application/json"}
@@ -200,6 +234,8 @@ def download_database(db_instance: AlchemicalDatabase, save_json=False):
         )
         hits = response.get('hits', {}).get('hits', [])
         raw_items = [hit['_source'] for hit in hits]
+        await asyncio.sleep(0.01)
+
         if save_json:
             with open(f"pf2e_alchemical_items.json", 'w', encoding='utf-8') as f:
                 json.dump(raw_items, f, indent=4, ensure_ascii=False)
@@ -209,26 +245,27 @@ def download_database(db_instance: AlchemicalDatabase, save_json=False):
         print("Populating local database...")
         for item in raw_items:
             db_instance.save_item(item)
+            await asyncio.sleep(0)
 
         print("Downloading trait descriptions...")
-        download_traits(db_instance)
+        await download_traits(db_instance)
         print("Database sync complete!\n")
 
 
     except Exception as e:
         print(f"Failed to sync data from online database: {e}")
 
-    def formula_price(level:int) -> int:
-        if level < 0:
-            level = 0
-        if level > 20:
-            level = 20
+def formula_price(level:int) -> int:
+    if level < 0:
+        level = 0
+    if level > 20:
+        level = 20
 
-        prices = [0.5, 1, 2, 3, 5, 8, 13, 18, 25, 35, 50, 70, 100, 150, 225, 325, 500, 750, 1200, 2000, 3500]   
-        return prices[level]
+    prices = [0.5, 1, 2, 3, 5, 8, 13, 18, 25, 35, 50, 70, 100, 150, 225, 325, 500, 750, 1200, 2000, 3500]   
+    return prices[level]
 
 
-def download_traits(db_instance: AlchemicalDatabase, save_json=True):
+async def download_traits(db_instance: AlchemicalDatabase, save_json=True):
     local_traits = db_instance.get_all_traits()
     
     if not local_traits:
@@ -259,12 +296,14 @@ def download_traits(db_instance: AlchemicalDatabase, save_json=True):
         response = es.search(index="aon", body=query_body)
         hits = response.get('hits', {}).get('hits', [])
         raw_items = [hit['_source'] for hit in hits]
+        await asyncio.sleep(0.01)
 
         if save_json:
             with open(f"pf2e_traits.json", 'w', encoding='utf-8') as f:
                 json.dump(raw_items, f, indent=4, ensure_ascii=False)
 
         print(f"Downloaded {len(hits)} matching trait records from online index.")
+        await asyncio.sleep(0.01)
 
   
         for trait in raw_items:
