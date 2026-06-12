@@ -158,63 +158,87 @@ def itemCard(item: Dict[str, Any],trait_descriptions,db: AlchemicalDatabase) -> 
 
     expanded, expand = ft.use_state(False)
 
-
     def on_card_press(e):
         print(f"the item is {item.get('name')} with id {item.get('id')}")
         print(f"        item has rmid: {item.get('remaster_id')} and lgid {item.get('legacy_id')}")
         expand(not expanded)
 
+       
+
     trait_list  = ft. Row(
+        spacing = 5,
         controls = [
-            ft.Container(
-                content = ft.Text(
-                        trait,
-                    ),
-                    bgcolor = ft.Colors.ON_SECONDARY_FIXED,
-                    border=ft.Border.all(2, ft.Colors.ON_SECONDARY_FIXED),
-                    padding = ft.Padding(left=3,right=3,bottom=1,top=1),
-                    border_radius = 4,
-                    tooltip = trait_descriptions.get(trait),  
-            ) 
+            ft.Card(
+                bgcolor = ft.Colors.ON_SECONDARY_FIXED,
+                variant =ft.CardVariant.FILLED,
+                shape = ft.RoundedRectangleBorder(radius=2),
+                margin=0,
+                elevation = 3,
+                content=ft.Container(
+                    #bgcolor = ft.Colors.ERROR_CONTAINER,
+                    border=ft.Border.all(0, ft.Colors.ON_SECONDARY_FIXED),
+                    tooltip = trait_descriptions.get(trait), 
+                    content=ft.Text(trait,size=13),       
+                    padding = ft.Padding(left=3,right=3,bottom=1,top=1),             
+                ),
+            )
             for trait in item.get('trait')
         ],
-        spacing =5
     )
     price = aon.formula_price(item.get("level", ""))
     price_coin = ' gp' if price >= 1 else ' sp'
     price = price if price >= 1 else int(price*10)
 
+   
+    def find_descriptions(text):
+        matches = [re.sub(r'\[(.*?)]\(\/.*?\)', lambda m: m.group(1), m.group(1).strip()) for m in re.finditer(r'<title.*?<\/column>.*?.(?:\s*?---\s*)?(.*?)(?=<|$)', text,flags=re.DOTALL)]
+        return matches
 
-    def clean_text(text):
-        return re.sub(r'\[(.*?)\]\(.*?\)', r'\1', text)
-
-    
-    
-
-    description_card = ft.Row(
-        controls=ft.Column(
-            controls = [
+    @ft.component
+    def childDescription(child_num,child):
+        return ft.Row(
+            expand =True,
+            controls=[
                 ft.Card(
                     bgcolor = ft.Colors.ON_SECONDARY_FIXED,
                     variant =ft.CardVariant.FILLED,
                     expand=True,
+                    elevation = 3,
                     content=ft.Container(
-                        content=ft.Text(db.filter_items(id = subitem, hide_excluded=False, is_outer_item=False,remaster_only=False)[0].get('name')),
+                        content=ft.Column(
+                            controls=[
+                            ft.Text(f'{child.get('name')} Level {child.get('level')}', weight=ft.FontWeight.BOLD),
+                            *([ft.Text(description_text[child_num+1])] if description_text[child_num+1] else [])
+                            ],
+                            expand=True
+                        ),
                         padding =12,
                     )
                 )
-                for subitem in item.get('item_child_id')
-            ] if item.get('item_child_id') else 
-            [ft.Card(
-                bgcolor = ft.Colors.ON_SECONDARY_FIXED,
-                variant =ft.CardVariant.FILLED,
-                expand=True,
-                content=ft.Container(
-                    content=ft.Text( item.get('text'),overflow = ft.TextOverflow.ELLIPSIS),
-                    
+            ])
+
+
+    
+
+
+    children = item.get('item_child_id')
+    if children:
+        children = [db.filter_items(id = child, hide_excluded=False, is_outer_item=False,remaster_only=False)[0] for child in children]
+    description_text = find_descriptions(item.get('markdown'))
+    description_card = ft.Row(
+        controls=ft.Column(
+            expand=True,
+            spacing = 0,
+            controls = [
+                ft.Container(
+                    content=ft.Markdown(description_text[0]),
                     padding =12,
-                    )
-            )],
+                )
+
+            ] + ([
+                childDescription(child_num,child)
+                for child_num,child in enumerate(children)
+            ] if children else []),
         )
     )
         
@@ -269,7 +293,7 @@ def catalogPageButtons(selected, pages, handle_func) ->  ft.Control:
                     controls=[
 
                         ft.Button(
-                            content = f"{number}",
+                            content = f"{number+1}",
                             on_click=lambda e,num=number: handle_func(e,num),
                             style=ft.ButtonStyle(
                                 shape=ft.RoundedRectangleBorder(radius=8),
@@ -291,7 +315,7 @@ def catalogList(search_options:SearchOptions,trait_descriptions,db:AlchemicalDat
        max_level = search_options.max_level,
        min_level = search_options.min_level)
     print(f"There is {len(items)} hits")
-    items_per_page=50
+    items_per_page=25
     some_pages = 2
     max_page = int(len(items)/items_per_page)
     low_bound =  min(max(1,max_page-(some_pages*2+1)),max(1, search_options.catalog_page-some_pages))

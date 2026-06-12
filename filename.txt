@@ -1,0 +1,51 @@
+<title
+    level="1"
+    right="Item 2"
+    pfs="Standard"
+>
+[Infiltrator's Elixir](/Equipment.aspx?ID=93)
+</title>
+
+<traits>
+<trait label="Alchemical" url="/Traits.aspx?ID=6" />
+<trait label="Consumable" url="/Traits.aspx?ID=36" />
+<trait label="Elixir" url="/Traits.aspx?ID=59" />
+<trait label="Polymorph" url="/Traits.aspx?ID=127" />
+</traits>
+
+<column gap="tiny">
+
+**Source** [Core Rulebook](/Sources.aspx?ID=1) pg. 548
+
+**Price** 6 gp
+
+<row gap="medium">
+
+**Usage** held in 1 hand
+
+**Bulk** L
+</row>
+
+<row gap="medium">
+<row gap="tiny"><row>**Activate**</row><actions string="Single Action" /><row>Interact</row></row>
+
+ 
+
+ 
+
+ 
+</row>
+
+</column>
+
+---
+
+Favored by spies and tricksters, an infiltrator’s elixir is used to alter your appearance. When imbibed, you take the shape of a humanoid creature of your size, but different enough so you might be unrecognizable. If you aren’t a humanoid, you might take on a form more similar to your own, at the GM’s discretion.
+
+ The creator of the elixir decides the basics of the appearance you transform into when you imbibe the elixir, including eye color, skin tone, and hair color. The elixir can’t change your form into that of a specific person. After the form takes hold, you retain it for the next 10 minutes. 
+
+ Drinking this elixir counts as setting up a disguise to Impersonate. You gain a +4 status bonus to your Deception DC to avoid others seeing through your disguise, and you add your level to this DC even if untrained. 
+
+<column gap="tiny">
+
+</column>
