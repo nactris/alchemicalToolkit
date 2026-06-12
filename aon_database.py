@@ -76,6 +76,7 @@ class AlchemicalDatabase:
 
     def filter_items(self, 
                      name: Optional[str] = None, 
+                     id: Optional[str] = None,
                      subcategory: Optional[str] = None, 
                      min_level: Optional[int] = None,  
                      max_level: Optional[int] = None,  
@@ -94,6 +95,10 @@ class AlchemicalDatabase:
         if name:
             query += " AND name LIKE ?"
             params.append(f"%{name}%")
+        
+        if id:
+            query += " AND id LIKE ?"
+            params.append(f"%{id}%")
 
         if subcategory:
             query += " AND subcategory LIKE ?"

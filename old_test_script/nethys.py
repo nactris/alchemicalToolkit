@@ -150,9 +150,7 @@ def download_database(db_instance: AlchemicalDatabase):
         raw_items = [hit['_source'] for hit in hits]
         print(f"Successfully retrieved {len(raw_items)} records from online index.")
 
-        if output_file is None:
-            output_file = f"pf2e_{category}s.json"
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open("pf2e_alchemicals.json", 'w', encoding='utf-8') as f:
             json.dump(raw_items, f, indent=4, ensure_ascii=False)
             
         print("Populating local database...")
@@ -179,7 +177,7 @@ if __name__ == "__main__":
     db = AlchemicalDatabase("alchemical_items.db")
     
     # Sync online data down to local database
-    # download_database(db)
+    download_database(db)
 
     print("-" * 50)
     print("DEMO 1: Standard Multi-Column Filter & Member Access")
