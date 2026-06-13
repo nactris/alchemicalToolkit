@@ -1,5 +1,5 @@
 import flet as ft
-import appstate
+from appstate import AppState,AppContext
 import aon_database as aon
 import re
 
@@ -7,6 +7,8 @@ import re
 ################################################################################################################################
 #//////////////////////////////////////////// TRAITS ///////////////////////////////////////////////////////////////////////////
 ################################################################################################################################
+
+
 
 @ft.component
 def traitPlate(text: str, tooltip:str, on_delete)-> ft.Control:
@@ -24,7 +26,11 @@ def traitPlate(text: str, tooltip:str, on_delete)-> ft.Control:
     )
 
 @ft.component 
-def traitContainer(search_options:SearchOptions,trait_descriptions):
+def traitContainer():
+
+    search_options = ft.use_context(AppContext).search_options
+    db =  ft.use_context(AppContext).db
+
     def handle_trait_plate_click(trait: str):
         search_options.remove_trait(trait)
     
@@ -47,27 +53,28 @@ def traitContainer(search_options:SearchOptions,trait_descriptions):
 ################################################################################################################################
 
 @ft.component 
-def searchHeader(search_options:SearchOptions, trait_descriptions,db:AlchemicalDatabase):
+def searchHeader(search_options: SearchOptions):
+
     entries  = ft.Row(controls=[
         nameSearch(search_options),
-        traitSearch(search_options,trait_descriptions.keys(),db)
+        traitSearch(search_options)
 
     ])
     total = ft.Column(
         controls =[
                 levelSlider(search_options),
                 entries,
-                traitContainer(search_options,trait_descriptions)
+                traitContainer()
         ]
     )
     return total
 
 
 @ft.component
-def nameSearch(search_options:SearchOptions):
+def nameSearch(search_options: SearchOptions):
+
     def handle_name_search_update(e):
         search_options.set_name(e.control.value)
-        print(e.control.value)
 
     return ft.TextField(
         label="Item name",value=search_options.name, expand=True, prefix_icon=ft.Icons.SEARCH, on_submit=handle_name_search_update
@@ -75,14 +82,10 @@ def nameSearch(search_options:SearchOptions):
 
 
 @ft.component
-def levelSlider(search_options:SearchOptions):
+def levelSlider(search_options: SearchOptions):
 
     def handle_level_change(e: ft.Event[ft.RangeSlider]): 
         search_options.set_levels(e.control.start_value,e.control.end_value)
-
-        print(f"{e.control.start_value} - {e.control.end_value}")
-        print(f"{search_options.min_level} - {search_options.max_level}")
-
 
     return ft.Column(
             controls=[
@@ -101,10 +104,12 @@ def levelSlider(search_options:SearchOptions):
 
 
 @ft.component
-def traitSearch(search_options:SearchOptions,trait_list,db:AlchemicalDatabase)-> ft.Control:
+def traitSearch(search_options: SearchOptions)-> ft.Control:
+
+    db = ft.use_context(AppContext).db
+    trait_list = ft.use_context(AppContext).trait_descriptions
     trait_field, set_trait_field = ft.use_state("")
 
-    #traits_autofill = db.get_all_traits()
     '''["Acid","Additive","Adjustment","Air","Alchemical","Auditory","Aura","Bomb","Cold","Consumable","Contact",
     "Contract","Darkness","Disease","Divine","Drug","Earth","Electricity","Elixir","Emotion","Enchantment","Evil",
     "Expandable","Fear","Fire","Force","Healing","Illusion","Incapacitation","Ingested","Inhaled","Injury","Light",
@@ -117,7 +122,6 @@ def traitSearch(search_options:SearchOptions,trait_list,db:AlchemicalDatabase)->
 
     def handle_select(e: ft.AutoCompleteSelectEvent):
         search_options.add_trait(e.selection.value)
-        print(search_options.traits)
         set_trait_field("")
        
 
@@ -154,13 +158,15 @@ def traitSearch(search_options:SearchOptions,trait_list,db:AlchemicalDatabase)->
 
 
 @ft.component
-def itemCard(item: Dict[str, Any],trait_descriptions,db: AlchemicalDatabase) -> ft.Control:
+def itemCard(item: Dict[str, Any]) -> ft.Control:
+    db = ft.use_context(AppContext).db
+    trait_descriptions = ft.use_context(AppContext).trait_descriptions
 
     expanded, expand = ft.use_state(False)
 
     def on_card_press(e):
-        print(f"the item is {item.get('name')} with id {item.get('id')}")
-        print(f"        item has rmid: {item.get('remaster_id')} and lgid {item.get('legacy_id')}")
+        #with open("filename.txt", 'w') as f:
+        #    f.write(item.get('markdown'))
         expand(not expanded)
 
        
@@ -186,13 +192,28 @@ def itemCard(item: Dict[str, Any],trait_descriptions,db: AlchemicalDatabase) -> 
         ],
     )
     price = aon.formula_price(item.get("level", ""))
-    price_coin = ' gp' if price >= 1 else ' sp'
-    price = price if price >= 1 else int(price*10)
-
    
+    def format_actions(text):
+        match text.group(1).strip():
+            case "Single Action":
+                return '`a` '
+            case "Two Actions":
+                return '`d` '
+            case "Three Actions":
+                return '`d` '
+            case "Free Action":
+                return '`.` '
+            case "Reaction":
+                return '`r` '
+            
+
     def find_descriptions(text):
-        matches = [re.sub(r'\[(.*?)]\(\/.*?\)', lambda m: m.group(1), m.group(1).strip()) for m in re.finditer(r'<title.*?<\/column>.*?.(?:\s*?---\s*)?(.*?)(?=<|$)', text,flags=re.DOTALL)]
+        matches = [re.sub(r'\[(.*?)]\((\/.*?)\)', lambda t: f"[{t.group(1)}](https://2e.aonprd.com/{t.group(2)})", m.group(1).strip()) for m in re.finditer(r'<title.*?<\/column>.*?.(?:\s*?---\s*)?(.*?)(?=<c|<t|$)', text,flags=re.DOTALL)]
+        matches = [re.sub(r'<actions.*?"(.*?)".+?>(?: ; +)?',  format_actions, m) for m in matches]
         return matches
+    description_text = find_descriptions(item.get('markdown'))
+
+    
 
     @ft.component
     def childDescription(child_num,child):
@@ -217,6 +238,11 @@ def itemCard(item: Dict[str, Any],trait_descriptions,db: AlchemicalDatabase) -> 
                 )
             ])
 
+    
+    
+    async def handle_link_click(e):
+        if e.data:
+            await ft.context.page.launch_url(e.data)
 
     
 
@@ -224,15 +250,24 @@ def itemCard(item: Dict[str, Any],trait_descriptions,db: AlchemicalDatabase) -> 
     children = item.get('item_child_id')
     if children:
         children = [db.filter_items(id = child, hide_excluded=False, is_outer_item=False,remaster_only=False)[0] for child in children]
-    description_text = find_descriptions(item.get('markdown'))
     description_card = ft.Row(
         controls=ft.Column(
             expand=True,
             spacing = 0,
             controls = [
                 ft.Container(
-                    content=ft.Markdown(description_text[0]),
-                    padding =12,
+                    content=ft.Markdown(
+                        description_text[0],
+                        selectable=True,
+                        on_tap_link =handle_link_click,
+                        md_style_sheet=ft.MarkdownStyleSheet(
+                            code_text_style=ft.TextStyle(
+                                font_family="PF2e Icons",
+                                size = 25,
+                            )
+                        )
+                    ),
+                padding =12,
                 )
 
             ] + ([
@@ -259,7 +294,7 @@ def itemCard(item: Dict[str, Any],trait_descriptions,db: AlchemicalDatabase) -> 
                     expand=True,
                     spacing =5
                 ),
-                ft.Text(f"{price}{price_coin}", italic=True)
+                ft.Text(f"{price[1]}", italic=True)
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN
         ), 
@@ -308,13 +343,14 @@ def catalogPageButtons(selected, pages, handle_func) ->  ft.Control:
 
 
 @ft.component
-def catalogList(search_options:SearchOptions,trait_descriptions,db:AlchemicalDatabase):
+def catalogList(search_options: SearchOptions):
+    db = ft.use_context(AppContext).db
+
     items = db.filter_items(
        name= search_options.name if len(search_options.name) else None,
        traits= {"and":search_options.traits} if len(search_options.traits) else None,
        max_level = search_options.max_level,
        min_level = search_options.min_level)
-    print(f"There is {len(items)} hits")
     items_per_page=25
     some_pages = 2
     max_page = int(len(items)/items_per_page)
@@ -339,12 +375,11 @@ def catalogList(search_options:SearchOptions,trait_descriptions,db:AlchemicalDat
            # expand=True,
 
         )
-    
     def handle_load_more_click(e,new_page):
         search_options.set_page(new_page)
 
     item_list = [catalogPageButtons(search_options.catalog_page,nearby_pages,handle_load_more_click)] +\
-    [itemCard(item,trait_descriptions,db) for item in \
+    [itemCard(item) for item in \
     items[items_per_page*search_options.catalog_page:\
     items_per_page*(search_options.catalog_page+1)]]
 
@@ -365,9 +400,10 @@ def catalogList(search_options:SearchOptions,trait_descriptions,db:AlchemicalDat
 ################################################################################################################################
 
 @ft.component
-def AlchemicalCatalogPage(app: AppState):
+def AlchemicalCatalogPage():
+    search_options = ft.use_context(AppContext).search_options
     return ft.Column( controls =[
-        searchHeader(app.search_options,app.trait_descriptions,app.db),
+        searchHeader(search_options),
         ft.Divider(),
-        catalogList(app.search_options,app.trait_descriptions,app.db),
+        catalogList(search_options),
     ], expand=True)

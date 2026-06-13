@@ -3,7 +3,8 @@ from typing import Dict, List, Any, Set
 from aon_database import *
 from dataclasses import dataclass, field
 
-db = AlchemicalDatabase("alchemical_items.db")
+
+AppContext: ft.ContextProvider[AppState | None] = ft.create_context(None)
 
 @ft.observable
 @dataclass
@@ -36,7 +37,9 @@ class SearchOptions:
         self.name=name
 
     def set_page(self,catalog_page):
+        print(f"{catalog_page}")
         self.catalog_page=catalog_page
+        print(f"{self.catalog_page}")
 
     def add_trait(self,trait:str):
         if not trait in self.traits:
@@ -51,14 +54,14 @@ class SearchOptions:
         self.min_level = low
 
     
-
+db = AlchemicalDatabase("alchemical_items.db")
 @ft.observable
 @dataclass
 class AppState:
     current_formula_book:FormulaBook
     search_options: SearchOptions = field(default_factory=SearchOptions)
     db: AlchemicalDatabase = AlchemicalDatabase("alchemical_items.db")
-    trait_descriptions: dict = field(default_factory=lambda: {trait: db.get_trait_description(trait) for trait in db.get_all_traits() } )
+    trait_descriptions: dict = field(default_factory=lambda: {trait: db.get_trait_description(trait) for trait in  db.get_all_traits() } )
     
 
     

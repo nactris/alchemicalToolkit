@@ -5,6 +5,7 @@ from appstate import *
 
 
 
+
 @ft.component
 def menuBar():
     bottom_appbar = ft.BottomAppBar(
@@ -23,17 +24,24 @@ def menuBar():
 
 import catalog
 @ft.component
-def CatalogView(app: AppState) -> ft.Control:
+def CatalogView() -> ft.Control:
     print("-> catalog")
-    return catalog.AlchemicalCatalogPage(app)
+    return catalog.AlchemicalCatalogPage()
     
 
 
 import settings
 @ft.component
-def SettingsView(app:AppState):
+def SettingsView():
     print("-> catalog")
     return settings.AdvancedCraftingConfig()
+
+
+import book
+@ft.component
+def FormulaView():
+    print("-> book ")
+    return book.AlchemicalFormulaBookPage()
 
 
 @ft.component
@@ -65,18 +73,23 @@ def AppView() -> ft.Control:
         ),
     )
 
-    return ft.Router(
-        [
-           # ft.Route(path="formulas", component=ft.Container()),
-            ft.Route(path="catalog", component=lambda: CatalogView(app)),
-            ft.Route(path="settings", component=lambda: SettingsView(app)),
-        ],
-        manage_views=True
+    return AppContext( 
+        app, 
+        lambda: ft.Router([
+            ft.Route(path="formulas", component=FormulaView),
+            ft.Route(path="catalog", component=CatalogView),
+            ft.Route(path="settings", component=SettingsView),
+            ],
+            manage_views=True
+        )   
     )
 
 
-async def main(page: ft.Page):
+def main(page: ft.Page):
     page.title = "AoN Alchemical Archivist"
+    page.fonts = {
+        "PF2e Icons": "assets/fonts/Pathfinder2eActions.ttf",
+    }
     page.floating_action_button = ft.FloatingActionButton(
         icon=ft.Icons.SHOPPING_CART_OUTLINED,
         shape=ft.CircleBorder(),
@@ -89,5 +102,4 @@ async def main(page: ft.Page):
     page.render(AppView)
 
 
-
-ft.run(main)
+ft.run(main,assets_dir="assets")
