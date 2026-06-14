@@ -9,15 +9,22 @@ AppContext: ft.ContextProvider[AppState | None] = ft.create_context(None)
 @ft.observable
 @dataclass
 class FormulaBook:
+    id: int = -1
     name: str = "Empty Formula Book"
     level: int = 1 
     formulas: list[str] = field(default_factory=list)
     #free_selection[list] = field(default_factory=dict)
     # here be settings, alchemical crafting and such
 
-    def update(self, name: str): #TODO add settings
-        self.name = name
+    def update(self, data,id): # TODO optional
+        self.id = id
+        self.name = data.get('name')
+        self.level = data.get('level')
+        self.formulas = data.get('formulas')
     
+    def set_name(self,name:str):
+        self.name = name
+
     def add(self,id:str):
         self.formulas.append(id)
 
@@ -74,7 +81,7 @@ db = AlchemicalDatabase("alchemical_items.db")
 @ft.observable
 @dataclass
 class AppState:
-    current_formula_book:FormulaBook
+    current_formula_book:FormulaBook = field(default_factory=FormulaBook)
     search_options: SearchOptions = field(default_factory=SearchOptions)
     db: AlchemicalDatabase = AlchemicalDatabase("alchemical_items.db")
     trait_descriptions: dict = field(default_factory=lambda: {trait: db.get_trait_description(trait) for trait in  db.get_all_traits() } )
