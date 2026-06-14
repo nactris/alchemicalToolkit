@@ -87,6 +87,7 @@ def AppView() -> ft.Control:
 
 def main(page: ft.Page):
     page.title = "AoN Alchemical Archivist"
+    page.padding = 0
     page.fonts = {
         "PF2e Icons": "assets/fonts/Pathfinder2eActions.ttf",
     }

@@ -161,12 +161,11 @@ def traitSearch(search_options: SearchOptions)-> ft.Control:
 def itemCard(item: Dict[str, Any]) -> ft.Control:
     db = ft.use_context(AppContext).db
     trait_descriptions = ft.use_context(AppContext).trait_descriptions
-
     expanded, expand = ft.use_state(False)
 
     def on_card_press(e):
-        #with open("filename.txt", 'w') as f:
-        #    f.write(item.get('markdown'))
+        with open("filename.txt", 'w') as f:
+            f.write(item.get('markdown'))
         expand(not expanded)
 
        
@@ -181,7 +180,6 @@ def itemCard(item: Dict[str, Any]) -> ft.Control:
                 margin=0,
                 elevation = 3,
                 content=ft.Container(
-                    #bgcolor = ft.Colors.ERROR_CONTAINER,
                     border=ft.Border.all(0, ft.Colors.ON_SECONDARY_FIXED),
                     tooltip = trait_descriptions.get(trait), 
                     content=ft.Text(trait,size=13),       
@@ -209,7 +207,8 @@ def itemCard(item: Dict[str, Any]) -> ft.Control:
 
     def find_descriptions(text):
         matches = [re.sub(r'\[(.*?)]\((\/.*?)\)', lambda t: f"[{t.group(1)}](https://2e.aonprd.com/{t.group(2)})", m.group(1).strip()) for m in re.finditer(r'<title.*?<\/column>.*?.(?:\s*?---\s*)?(.*?)(?=<c|<t|$)', text,flags=re.DOTALL)]
-        matches = [re.sub(r'<actions.*?"(.*?)".+?>(?: ; +)?',  format_actions, m) for m in matches]
+        matches = [re.sub(r'<actions.*?"(.*?)".+?>(?: Interact)?(?:[; ]+)?',  format_actions, m) for m in matches]
+        matches = [re.sub(r'<br \/>', r'\n', m) for m in matches]
         return matches
     description_text = find_descriptions(item.get('markdown'))
 
@@ -402,8 +401,12 @@ def catalogList(search_options: SearchOptions):
 @ft.component
 def AlchemicalCatalogPage():
     search_options = ft.use_context(AppContext).search_options
-    return ft.Column( controls =[
-        searchHeader(search_options),
-        ft.Divider(),
-        catalogList(search_options),
-    ], expand=True)
+    return ft.Container(
+        padding =10,
+        expand=True,
+        content= ft.Column( controls =[
+            searchHeader(search_options),
+            ft.Divider(),
+            catalogList(search_options),
+        ], expand=True),
+    )

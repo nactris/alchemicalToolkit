@@ -2,25 +2,41 @@ import flet as ft
 from typing import Dict, List, Any, Set
 from aon_database import *
 from dataclasses import dataclass, field
-
+import json
 
 AppContext: ft.ContextProvider[AppState | None] = ft.create_context(None)
 
 @ft.observable
 @dataclass
 class FormulaBook:
-    name: str
-    formuas: list[str] = field(default_factory=list)
+    name: str = "Empty Formula Book"
+    level: int = 1 
+    formulas: list[str] = field(default_factory=list)
+    #free_selection[list] = field(default_factory=dict)
     # here be settings, alchemical crafting and such
 
     def update(self, name: str): #TODO add settings
         self.name = name
     
     def add(self,id:str):
-        self.formuas.append(id)
+        self.formulas.append(id)
 
     def remove(self,id:str):
-        self.formuas.remove(id)
+        self.formulas.remove(id)
+
+    class Encoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, set):
+                return list(obj)
+            if isinstance(obj,FormulaBook):
+                return {
+                        'name':obj.name,
+                        'level': obj.level,
+                        'formulas': obj.formulas
+                    }
+            if hasattr(obj, "__dict__"):
+                return obj.__dict__
+            return super().default(obj)
 
 
 @ft.observable
