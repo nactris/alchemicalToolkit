@@ -3,15 +3,16 @@ from typing import Dict, List, Any, Set
 from aon_database import *
 from dataclasses import dataclass, field
 import json
+import uuid
 
 AppContext: ft.ContextProvider[AppState | None] = ft.create_context(None)
 
 @ft.observable
 @dataclass
 class FormulaBook:
-    id: int = -1
+    id: int = str(uuid.uuid4())
     name: str = "Empty Formula Book"
-    level: int = 1 
+    level: str = 1
     formulas: list[str] = field(default_factory=list)
     #free_selection[list] = field(default_factory=dict)
     # here be settings, alchemical crafting and such
@@ -24,6 +25,9 @@ class FormulaBook:
     
     def set_name(self,name:str):
         self.name = name
+    
+    def set_level(self,level:int):
+        self.level = level
 
     def add(self,id:str):
         self.formulas.append(id)

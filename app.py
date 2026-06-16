@@ -74,18 +74,21 @@ def AppView() -> ft.Control:
     )
 
     return AppContext( 
-        app, 
-        lambda: ft.Router([
-            ft.Route(path="formulas", component=FormulaView),
-            ft.Route(path="catalog", component=CatalogView),
-            ft.Route(path="settings", component=SettingsView),
-            ],
-            manage_views=True
-        )   
-    )
+            app, 
+            lambda: ft.Router([
+                ft.Route(path="formulas", component=FormulaView),
+                ft.Route(path="catalog", component=CatalogView),
+                ft.Route(path="settings", component=SettingsView),
+                ],
+                manage_views=True
+            )   
+        )
 
 
-def main(page: ft.Page):
+async def main(page: ft.Page):
+    await page.window.center()
+    page.window.width = 700
+    page.window.height = 1000
     page.title = "AoN Alchemical Archivist"
     page.padding = 0
     page.fonts = {
