@@ -4,8 +4,12 @@ from aon_database import *
 from dataclasses import dataclass, field
 import json
 import uuid
+import re
 
 AppContext: ft.ContextProvider[AppState | None] = ft.create_context(None)
+
+
+
 
 @ft.observable
 @dataclass
@@ -14,8 +18,36 @@ class FormulaBook:
     name: str = "Empty Formula Book"
     level: str = 1
     formulas: list[str] = field(default_factory=list)
-    #free_selection[list] = field(default_factory=dict)
+    free_selection: dist[list] = field(default_factory=dict)
     # here be settings, alchemical crafting and such
+
+    def mark_free(self, key,itemId: str ):
+        if not itemId in self.formulas:
+            self.formulas.append(itemId)
+        
+        if  not key in self.free_selection :
+            self.free_selection[key] = []
+
+
+        if key == "AC" or key == 1:
+            if len(self.free_selection[key]) <= 4:
+                self.free_selection[key].append(itemId)
+       
+        else:
+            if len(self.free_selection[key]) <= 2:
+                self.free_selection[key].append(itemId)
+
+        # formula book -> 4x 1st level item + 2 items per next level -> 2 + 2*level
+        # research field -> 2x item
+        # alchemical crafting - 4x item
+
+    def get_free(self):
+        return [item for sublist in self.free_selection.values() for item in sublist]
+
+    def remove_free(self,key,order):
+        print(self.free_selection[key],order)
+        if key in self.free_selection and len(self.free_selection[key]) > order :
+            self.free_selection[key].pop(order)
 
     def update(self, data,id): # TODO optional
         self.id = id
@@ -30,10 +62,18 @@ class FormulaBook:
         self.level = level
 
     def add(self,id:str):
-        self.formulas.append(id)
+        if not id in self.formulas:
+            self.formulas.append(id)
+
+    def switchItem(self,id:str):
+        if not id in self.formulas:
+            self.formulas.append(id)
+        else:
+            self.formulas.remove(id)
 
     def remove(self,id:str):
-        self.formulas.remove(id)
+        if id in self.formulas:
+            self.formulas.remove(id)
 
     class Encoder(json.JSONEncoder):
         def default(self, obj):
@@ -53,7 +93,7 @@ class FormulaBook:
 @ft.observable
 @dataclass
 class SearchOptions:
-    catalog_page: int = 0
+    catalog_page: int = 1
     min_level: int = 0
     max_level: int = 20
     name: str = ""
@@ -62,21 +102,23 @@ class SearchOptions:
     
     def set_name(self,name):
         self.name=name
+        self.catalog_page = 1
 
-    def set_page(self,catalog_page):
-        print(f"{catalog_page}")
+    def set_catalog_page(self,catalog_page):
         self.catalog_page=catalog_page
-        print(f"{self.catalog_page}")
 
     def add_trait(self,trait:str):
+        self.catalog_page = 1
         if not trait in self.traits:
             self.traits.append(trait)
 
 
     def remove_trait(self,trait:str):
+        self.catalog_page = 1
         self.traits.remove(trait)
     
     def set_levels(self,low:int, high:int):
+        self.catalog_page = 1
         self.max_level = high
         self.min_level = low
 

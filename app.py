@@ -43,6 +43,13 @@ def FormulaView():
     print("-> book ")
     return book.AlchemicalFormulaBookPage()
 
+import freebook
+@ft.component
+def FreeView():
+    print("-> free ")
+    return freebook.AlchemistFreeFormulas()
+
+
 
 @ft.component
 def AppView() -> ft.Control:
@@ -61,13 +68,14 @@ def AppView() -> ft.Control:
 
     ft.context.page.bottom_appbar = ft.BottomAppBar(
         bgcolor=ft.Colors.ON_SECONDARY,
-        shape=ft.CircularRectangleNotchShape(),
+        #shape=ft.CircularRectangleNotchShape(),
         content=ft.Row(
             controls=[
                 ft.IconButton(icon= cloud_icon, icon_color=ft.Colors.ON_SURFACE,on_click=reload_database),
                 ft.Container(expand=True),
-                ft.IconButton(icon=ft.Icons.SEARCH, icon_color=ft.Colors.ON_SURFACE, on_click=lambda : ft.context.page.navigate("/catalog")),
+                ft.IconButton(icon=ft.Icons.SEARCH, icon_color=ft.Colors.ON_SURFACE, on_click=lambda : ft.context.page.navigate("")),
                 ft.IconButton(icon=ft.Icons.BOOK, icon_color=ft.Colors.ON_SURFACE,  on_click=lambda: ft.context.page.navigate("/formulas")),
+                ft.IconButton(icon=ft.Icons.STAR_ROUNDED, icon_color=ft.Colors.ON_SURFACE,  on_click=lambda: ft.context.page.navigate("/free")),
                 ft.IconButton(icon=ft.Icons.SETTINGS, icon_color=ft.Colors.ON_SURFACE,  on_click=lambda: ft.context.page.navigate("/settings")),
             ]
         ),
@@ -77,8 +85,9 @@ def AppView() -> ft.Control:
             app, 
             lambda: ft.Router([
                 ft.Route(path="formulas", component=FormulaView),
-                ft.Route(path="catalog", component=CatalogView),
+                ft.Route(path="", component=CatalogView),
                 ft.Route(path="settings", component=SettingsView),
+                ft.Route(path="free", component=FreeView),
                 ],
                 manage_views=True
             )   
@@ -86,18 +95,19 @@ def AppView() -> ft.Control:
 
 
 async def main(page: ft.Page):
+    page.window.min_width = 700
+    page.window.min_height = 350
+    page.window.alignment = ft.Alignment.CENTER
     await page.window.center()
-    page.window.width = 700
-    page.window.height = 1000
     page.title = "AoN Alchemical Archivist"
     page.padding = 0
     page.fonts = {
         "PF2e Icons": "assets/fonts/Pathfinder2eActions.ttf",
     }
-    page.floating_action_button = ft.FloatingActionButton(
-        icon=ft.Icons.SHOPPING_CART_OUTLINED,
-        shape=ft.CircleBorder(),
-    )
+    #page.floating_action_button = ft.FloatingActionButton(
+    #    icon=ft.Icons.SHOPPING_CART_OUTLINED,
+    #    shape=ft.CircleBorder(),
+    #)
     page.floating_action_button_location = ft.FloatingActionButtonLocation.CENTER_DOCKED
 
     
