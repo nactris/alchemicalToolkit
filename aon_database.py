@@ -80,6 +80,7 @@ class AlchemicalDatabase:
                      subcategory: Optional[str] = None, 
                      min_level: Optional[int] = None,  
                      max_level: Optional[int] = None,  
+                     permited_level: Optional[list] = None,
                      skill: Optional[str] = None, 
                      summary: Optional[str] = None, 
                      legacy_only = False,
@@ -134,6 +135,10 @@ class AlchemicalDatabase:
                 json_type(full_raw_data, '$.exclude_from_search') IS NOT NULL 
                 AND json_extract(full_raw_data, '$.exclude_from_search') = 0
             )"""
+
+        if permited_level:
+            query += f" AND level IN ({", ".join(["?"] * len(permited_level))})"
+            params.extend(permited_level)
 
         if is_outer_item:
             query += """ AND (

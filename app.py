@@ -6,26 +6,10 @@ from appstate import *
 
 
 
-@ft.component
-def menuBar():
-    bottom_appbar = ft.BottomAppBar(
-        bgcolor=ft.Colors.BLUE,
-        shape=ft.CircularRectangleNotchShape(),
-        content=ft.Row(
-            controls=[
-                ft.IconButton(icon=ft.Icons.CLOUD_DOWNLOAD, icon_color=ft.Colors.WHITE),
-                ft.Container(expand=True),
-                ft.IconButton(icon=ft.Icons.SEARCH, icon_color=ft.Colors.WHITE),
-                ft.IconButton(icon=ft.Icons.FAVORITE, icon_color=ft.Colors.WHITE),
-            ]
-        ),
-    )
-    return bottom_appbar
 
 import catalog
 @ft.component
 def CatalogView() -> ft.Control:
-    print("-> catalog")
     return catalog.AlchemicalCatalogPage()
     
 
@@ -33,28 +17,16 @@ def CatalogView() -> ft.Control:
 import settings
 @ft.component
 def SettingsView():
-    print("-> catalog")
     return settings.AdvancedCraftingConfig()
 
 
-import book
-@ft.component
-def FormulaView():
-    print("-> book ")
-    return book.AlchemicalFormulaBookPage()
-
-import freebook
-@ft.component
-def FreeView():
-    print("-> free ")
-    return freebook.AlchemistFreeFormulas()
 
 
 
 @ft.component
 def AppView() -> ft.Control:
 
-    empty_book = FormulaBook(name="Formula Book")
+    empty_book = FormulaBook(name="New Formula Book")
     app, _ = ft.use_state(
        AppState(current_formula_book=empty_book)
     )
@@ -74,8 +46,6 @@ def AppView() -> ft.Control:
                 ft.IconButton(icon= cloud_icon, icon_color=ft.Colors.ON_SURFACE,on_click=reload_database),
                 ft.Container(expand=True),
                 ft.IconButton(icon=ft.Icons.SEARCH, icon_color=ft.Colors.ON_SURFACE, on_click=lambda : ft.context.page.navigate("")),
-                ft.IconButton(icon=ft.Icons.BOOK, icon_color=ft.Colors.ON_SURFACE,  on_click=lambda: ft.context.page.navigate("/formulas")),
-                ft.IconButton(icon=ft.Icons.STAR_ROUNDED, icon_color=ft.Colors.ON_SURFACE,  on_click=lambda: ft.context.page.navigate("/free")),
                 ft.IconButton(icon=ft.Icons.SETTINGS, icon_color=ft.Colors.ON_SURFACE,  on_click=lambda: ft.context.page.navigate("/settings")),
             ]
         ),
@@ -84,10 +54,10 @@ def AppView() -> ft.Control:
     return AppContext( 
             app, 
             lambda: ft.Router([
-                ft.Route(path="formulas", component=FormulaView),
+                #ft.Route(path="formulas", component=FormulaView),
                 ft.Route(path="", component=CatalogView),
                 ft.Route(path="settings", component=SettingsView),
-                ft.Route(path="free", component=FreeView),
+                #ft.Route(path="free", component=FreeView),
                 ],
                 manage_views=True
             )   
@@ -95,8 +65,8 @@ def AppView() -> ft.Control:
 
 
 async def main(page: ft.Page):
-    page.window.min_width = 700
-    page.window.min_height = 350
+    page.window.min_width = 1000
+    page.window.min_height = 550
     page.window.alignment = ft.Alignment.CENTER
     await page.window.center()
     page.title = "AoN Alchemical Archivist"

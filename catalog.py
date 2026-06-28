@@ -1,130 +1,33 @@
 import flet as ft
-from appstate import AppState, AppContext
+from appstate import AppState, AppContext,FormulaBook
+from search import *
 import aon_database as aon
 import re
 from typing import Dict, Any
+import json
+import uuid
+import dialogs 
 
-################################################################################################################################
-# //////////////////////////////////////////// TRAITS ///////////////////////////////////////////////////////////////////////////
-################################################################################################################################
+FILE_PATH = "formula_books.json"
 
-def traitPlate(text: str, tooltip: str, on_delete) -> ft.Control:
-    return ft.Container(
-        ft.Button(
-            content=text,
-            on_click=on_delete,
-            tooltip=tooltip,  
-            style=ft.ButtonStyle(
-                shape=ft.RoundedRectangleBorder(radius=0),
-                side=ft.BorderSide(width=2, color=ft.Colors.ON_PRIMARY)
-            ) 
-        )
-    )
+def open_save():
+    with open(FILE_PATH, 'a+') as save_file:
+        save_file.seek(0)
+        content = save_file.read()
+        
+        if not content:
+            book = FormulaBook()
+            data = {book.id:book}
+            content = json.dumps(data,cls=FormulaBook.Encoder, indent=4)
 
-@ft.component 
-def traitContainer():
-    context = ft.use_context(AppContext)
-    search_options = context.search_options
-    trait_descriptions = context.trait_descriptions
+        data = json.loads(content)
+        return data
 
-    def handle_trait_plate_click(trait: str):
-        search_options.remove_trait(trait)
-    
-    container = ft.Row(
-        wrap=True,          
-        spacing=10,           
-        run_spacing=10,
-        alignment=ft.MainAxisAlignment.START,
-        controls=[
-            traitPlate(trait, trait_descriptions.get(trait, ""), lambda e, t=trait: handle_trait_plate_click(t))
-            for trait in search_options.traits
-        ]
-    )
-    return container
+def write_save(formula_book,data): 
+    data[formula_book.id] = formula_book.asDict()
+    with open(FILE_PATH, "w") as save:
+        json.dump(data, save,cls=FormulaBook.Encoder, indent=4)
 
-################################################################################################################################
-# /////////////////////////////////////////// SEARCH ////////////////////////////////////////////////////////////////////////////
-################################################################################################################################
-
-@ft.component 
-def searchHeader(search_options: SearchOptions):
-    entries = ft.Row(controls=[
-        nameSearch(search_options),
-        traitSearch(search_options)
-    ])
-    total = ft.Column(
-        controls=[
-            levelSlider(search_options),
-            entries,
-            traitContainer()
-        ]
-    )
-    return total
-
-@ft.component
-def nameSearch(search_options: SearchOptions):
-    def handle_name_search_update(e):
-        search_options.set_name(e.control.value)
-
-    return ft.TextField(
-        label="Item name", value=search_options.name, expand=True, prefix_icon=ft.Icons.SEARCH, on_submit=handle_name_search_update
-    )
-
-@ft.component
-def levelSlider(search_options: SearchOptions):
-    def handle_level_change(e: ft.Event[ft.RangeSlider]): 
-        search_options.set_levels(e.control.start_value, e.control.end_value)
-
-    return ft.Column(
-        controls=[
-            ft.Container(height=20),
-            ft.RangeSlider(
-                divisions=20,
-                min=0,
-                max=20,
-                start_value=search_options.min_level,
-                end_value=search_options.max_level,
-                on_change_end=handle_level_change,
-                label="Level {value}",
-            )
-        ]
-    )
-
-@ft.component
-def traitSearch(search_options: SearchOptions) -> ft.Control:
-    trait_list = ft.use_context(AppContext).trait_descriptions
-    trait_field, set_trait_field = ft.use_state("")
-    
-    def handle_change(e: ft.Event[ft.AutoComplete]):
-        pass
-
-    def handle_select(e: ft.AutoCompleteSelectEvent):
-        search_options.add_trait(e.selection.value)
-        set_trait_field("")
-
-    content = ft.Row(
-        controls=[
-            ft.Container(
-                content=ft.AutoComplete(
-                    value="",
-                    width=150,
-                    on_change=handle_change,
-                    on_select=handle_select,
-                    suggestions=[
-                        ft.AutoCompleteSuggestion(key=value, value=value)
-                        for value in (set(trait_list) - set(search_options.traits))
-                    ],
-                ),
-                border=ft.Border.all(1),
-                border_radius=4,
-                padding=ft.Padding.only(left=15, right=15, bottom=5),
-                alignment=ft.Alignment.CENTER,
-                height=48,
-                clip_behavior=ft.ClipBehavior.NONE
-            )
-        ]
-    )
-    return content
 
 ################################################################################################################################
 # //////////////////////////////////////////// CATALOG LIST ////////////////////////////////////////////////////////////////////
@@ -140,7 +43,8 @@ def format_actions(match_obj):
         case _: return ''
 
 @ft.component
-def ItemExpandedDetails(item: Dict[str, Any], db, trait_descriptions) -> ft.Control:
+def ItemExpandedDetails(item: Dict[str, Any], trait_descriptions) -> ft.Control:
+    db = ft.use_context(AppContext).db
     descriptions = item.get('markdown', '')
     parsed_descriptions = [
         re.sub(r'\[(.*?)]\((\/.*?)\)',
@@ -215,7 +119,7 @@ def ItemExpandedDetails(item: Dict[str, Any], db, trait_descriptions) -> ft.Cont
     )
 
 @ft.component
-def ItemCardCheckbox(item_id: str):
+def ItemCardCheckbox(item_id: str,save):
     formula_book = ft.use_context(AppContext).current_formula_book
     r,reset = ft.use_state(False)
 
@@ -224,6 +128,7 @@ def ItemCardCheckbox(item_id: str):
     def handle_click(e):
         reset(not r)
         formula_book.switchItem(item_id)
+        save()
 
     return ft.Container(
         #bgcolor = ft.Colors.PRIMARY,
@@ -238,7 +143,7 @@ def ItemCardCheckbox(item_id: str):
     )
 
 @ft.component
-def itemCard(item: Dict[str, Any]) -> ft.Control:
+def itemCard(item: Dict[str, Any],save) -> ft.Control:
     formula_book = ft.use_context(AppContext).current_formula_book
     db = ft.use_context(AppContext).db
     trait_descriptions = ft.use_context(AppContext).trait_descriptions
@@ -250,6 +155,8 @@ def itemCard(item: Dict[str, Any]) -> ft.Control:
 
     trait_list = ft.Row(
         spacing=5,
+        wrap=True,        
+        run_spacing=5,   
         controls=[
             ft.Card(
                 bgcolor=ft.Colors.ON_SECONDARY_FIXED,
@@ -267,7 +174,8 @@ def itemCard(item: Dict[str, Any]) -> ft.Control:
             for trait in item.get('trait', [])
         ],
     )
-    price = aon.formula_price(item.get("level", ""))
+
+    price = aon.formula_price(item.get("level", "")) if not item.get("id","") in formula_book.get_free() else [0,"Free"]
 
     title_panel = ft.Container(
         on_click=on_card_press,
@@ -281,11 +189,11 @@ def itemCard(item: Dict[str, Any]) -> ft.Control:
                         trait_list,
                         ft.Text(f"Level {item.get('level')} | {item.get('item_subcategory', 'Item')}")
                     ],
-                    expand=True,
+                    expand=True, # This ensures the column leaves space for the price/icon
                     spacing=5
                 ),
                 ft.Text(f"{price[1] if len(price) > 1 else price}", italic=True),
-                ItemCardCheckbox(item_id=item.get("id")),
+                ItemCardCheckbox(item_id=item.get("id"),save=save),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN
         ), 
@@ -300,7 +208,7 @@ def itemCard(item: Dict[str, Any]) -> ft.Control:
                     spacing=2,
                     controls=[
                         title_panel,
-                        *([ItemExpandedDetails(item, db, trait_descriptions)] if expanded else [])
+                        *([ItemExpandedDetails(item, trait_descriptions)] if expanded else [])
                     ]
                 )
             )
@@ -308,38 +216,192 @@ def itemCard(item: Dict[str, Any]) -> ft.Control:
     )
 
 @ft.component
-def catalogList(search_options: SearchOptions):
+def savedFormulaBar(formula_book,save_data):
+
     db = ft.use_context(AppContext).db
+    show_formula_dialog, set_show_formula_dialog = ft.use_state(False)
+    show_level_dialog, set_show_level_dialog = ft.use_state(False)
+    show_free_selection, set_show_free_selection = ft.use_state(False)
+    show_formula_selection_dialog, set_show_formula_selection_dialog = ft.use_state(False)
+
+    def get_total_formulabook_price():
     
-    items = sorted(db.filter_items(
+        return divmod(
+            sum(
+                map(
+                    lambda e: aon.formula_price(e.get("level", ""))[0],
+                    filter(
+                        lambda i: not i.get('id') in formula_book.get_free(),
+                        [db.filter_items(id=item, hide_excluded=False, is_outer_item=False, remaster_only=False)[0] for item in formula_book.formulas]
+                    )
+                )
+            ),
+            1
+        )
+             
+    target_selection = ft.use_ref("AC")
+
+
+    free_only, set_free_only = ft.use_state(False)
+    reset_val,reset = ft.use_state(True)
+
+    def handle_formula_dialog_close(e):
+        set_show_formula_dialog(False)
+
+    def handle_formula_dialog_new(e):
+        ...
+
+    def handle_formula_dialog_delete(e):
+        ...
+
+
+
+    ft.use_dialog(
+        dialogs.formulaBook(
+            formula_book=formula_book,
+            handle_new=handle_formula_dialog_new,
+            handle_delete=handle_formula_dialog_delete,
+            setter = set_show_formula_dialog,
+            save_data=save_data,
+        ) if show_formula_dialog else None
+    )
+
+    ft.use_dialog(
+        dialogs.levelSelection(
+            formula_book=formula_book,
+            setter=set_show_level_dialog
+        )
+        if show_level_dialog else None
+    )
+
+    ft.use_dialog(
+        dialogs.freeSelection(
+            formula_book=formula_book,
+            db=db,
+            key=target_selection,
+            setter=set_show_free_selection,
+            sub_dialog=set_show_formula_selection_dialog,
+            save=lambda: write_save(formula_book,save_data.current)
+        )
+        if show_free_selection else None
+    )
+
+    ft.use_dialog(
+        dialogs.formulaSelection(
+            formula_book=formula_book,
+            db=db,
+            key=target_selection,
+            setter= set_show_formula_selection_dialog,
+            save=lambda: write_save(formula_book,save_data.current)
+        )
+        if show_formula_selection_dialog else None
+    )
+
+  
+    def handle_blur(e):
+        reset(not reset_val)
+
+    def handle_rename(e):
+        formula_book.set_name(e.control.value)
+        write_save(formula_book,save_data.current)
+
+
+    total_gp,total_sp = get_total_formulabook_price()
+    total_gp = int(total_gp)
+    total_sp = int(total_sp*10)
+    total= "Price: " + (f"{total_gp} gp" if total_gp else "") + (f"{' ' if total_gp else ''}{total_sp} sp" if total_sp else "" + "Free" if not total_gp and not total_sp else "")
+    return ft.Container(
+        content=ft.Row(
+            controls=[
+                ft.Container(
+                    border_radius=4,
+                    padding= 5,
+                    border=ft.Border.all(color=ft.Colors.PRIMARY,width=2),
+                    content=ft.Text("Formula Book"),
+                    on_click=lambda e: set_show_formula_dialog(True)
+                ),
+                ft.TextField(
+                    label = 'Name',
+                    value = formula_book.name,
+                    on_submit = handle_rename, 
+                    on_blur = handle_blur,
+                ),
+
+                ft.Container(expand=True),
+                ft.Text(total),
+                ft.TextButton(
+                    "Free formulas",
+                    style=ft.ButtonStyle(
+                            shape=ft.RoundedRectangleBorder(radius=5),
+                            padding=10,
+                            bgcolor=ft.Colors.SURFACE_CONTAINER_LOW
+                        ),
+                    on_click=lambda e: set_show_free_selection(True)
+                ),
+                ft.Button(
+                    style=ft.ButtonStyle(
+                            shape=ft.RoundedRectangleBorder(radius=5),
+                            padding=10,
+                        ),
+                    content = ft.Text(f"Level {formula_book.level}"),
+                    on_click=lambda e: set_show_level_dialog(True)
+                )
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_AROUND,
+        ),
+        bgcolor=ft.Colors.ON_SECONDARY,  
+        padding=10,                  
+        margin=0,    
+                      
+        #border_radius=5,             
+    )
+
+
+@ft.component
+def catalogList(search_options: SearchOptions,formula_book:FormulaBook):
+    save_data = ft.use_ref(open_save())
+    db = ft.use_context(AppContext).db
+    items = sorted(filter(lambda i:( not search_options.known_only or i.get('id') in formula_book.formulas),
+    db.filter_items(
        name=search_options.name if len(search_options.name) else None,
        traits={"and": search_options.traits} if len(search_options.traits) else None,
        max_level=search_options.max_level,
        min_level=search_options.min_level
-    ), key=lambda x: x['level'])
+       #permited_level = [search_options.permited_level] if len(search_options.permited_level) else None,
+    )), key=lambda x: x[search_options.sort], reverse = not search_options.sort_asc)
     
+
+
     if not items:
-        return ft.ListView(
+        return  ft.Column(
+            expand=True,
             controls=[
-                ft.Container(
-                    content=ft.Text("No items match your criteria.", size=16), 
-                    padding=20, 
-                    alignment=ft.Alignment.CENTER
+                savedFormulaBar(formula_book,save_data),ft.ListView(
+                    controls=[
+                        ft.Container(
+                            content=ft.Text("No items match your criteria.", size=16), 
+                            padding=20, 
+                            alignment=ft.Alignment.CENTER
+                        )
+                    ],
                 )
-            ],
+            ]
         )
 
-    items_per_page = 30
+    items_per_page = 20
+
+
     total_pages = max(1, (len(items) + items_per_page - 1) // items_per_page)
     start_idx = (search_options.catalog_page - 1) * items_per_page
     end_idx = min(start_idx + items_per_page, len(items))
     
-    current_items = items[start_idx:end_idx]
+    current_items =items[start_idx:end_idx]
     
 
-    page_nav = ft.Row(
+    page_nav = ft.Container(ft.Row(
         alignment=ft.MainAxisAlignment.CENTER,
-        spacing=10,
+        spacing=0,
+        
         controls=[
             ft.IconButton(
                 icon=ft.Icons.FIRST_PAGE,
@@ -363,33 +425,34 @@ def catalogList(search_options: SearchOptions):
                 on_click=lambda e: search_options.set_catalog_page(total_pages)
             )
         ]
-    )
+    ),padding=-5,)
 
-    item_controls = [page_nav]
-    item_controls+=[itemCard(item) for item in current_items]
-    item_controls.append(page_nav)
-
+   #item_controls = [page_nav]
+    #item_controls+=[itemCard(item) for item in current_items]
+    #item_controls.append(page_nav)
+    item_controls=[itemCard(item,lambda: write_save(formula_book,save_data.current)) for item in current_items]
 
 
     return ft.Column(
         expand=True,
         controls=[
-            ft.ListView(controls=item_controls, expand=True, spacing=5, padding=10)
+            savedFormulaBar(formula_book=formula_book,save_data=save_data),
+            ft.ListView(controls=item_controls, expand=True, spacing=5, padding=0,),
+            page_nav
         ]
     )
-################################################################################################################################
-# //////////////////////////////////////////// CATALOG //////////////////////////////////////////////////////////////////////////
-################################################################################################################################
+
 
 @ft.component
 def AlchemicalCatalogPage():
     search_options = ft.use_context(AppContext).search_options
+    formula_book = ft.use_context(AppContext).current_formula_book
     return ft.Container(
         padding=10,
         expand=True,
-        content=ft.Column(controls=[
-            searchHeader(search_options),
-            ft.Divider(),
-            catalogList(search_options),
+        content=ft.Row(spacing=5,controls=[
+            ft.Container(width=300,content=searchTab(search_options),bgcolor=ft.Colors.SURFACE_CONTAINER,border_radius=8,padding=10),
+            ft.Container(expand=True,content=catalogList(search_options,formula_book), padding=0),
+
         ], expand=True),
     )

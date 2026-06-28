@@ -30,11 +30,11 @@ class FormulaBook:
 
 
         if key == "AC" or key == 1:
-            if len(self.free_selection[key]) <= 4:
+            if len(self.free_selection[key]) < 4:
                 self.free_selection[key].append(itemId)
        
         else:
-            if len(self.free_selection[key]) <= 2:
+            if len(self.free_selection[key]) < 2:
                 self.free_selection[key].append(itemId)
 
         # formula book -> 4x 1st level item + 2 items per next level -> 2 + 2*level
@@ -44,9 +44,12 @@ class FormulaBook:
     def get_free(self):
         return [item for sublist in self.free_selection.values() for item in sublist]
 
+        
+
+
     def remove_free(self,key,order):
-        print(self.free_selection[key],order)
         if key in self.free_selection and len(self.free_selection[key]) > order :
+            print("formula",key,order)
             self.free_selection[key].pop(order)
 
     def update(self, data,id): # TODO optional
@@ -54,6 +57,7 @@ class FormulaBook:
         self.name = data.get('name')
         self.level = data.get('level')
         self.formulas = data.get('formulas')
+        self.free_selection= data.get('free_selection')
     
     def set_name(self,name:str):
         self.name = name
@@ -75,6 +79,19 @@ class FormulaBook:
         if id in self.formulas:
             self.formulas.remove(id)
 
+        for key,itemList in self.free_selection.items():
+            if id in itemList:
+                self.free_selection[key].remove(id)
+
+
+    def asDict(self):
+        return  {
+            'name':self.name,
+            'level': self.level,
+            'formulas': self.formulas,
+            'free_selection': self.free_selection
+        }
+
     class Encoder(json.JSONEncoder):
         def default(self, obj):
             if isinstance(obj, set):
@@ -83,7 +100,8 @@ class FormulaBook:
                 return {
                         'name':obj.name,
                         'level': obj.level,
-                        'formulas': obj.formulas
+                        'formulas': obj.formulas,
+                        'free_selection': obj.free_selection
                     }
             if hasattr(obj, "__dict__"):
                 return obj.__dict__
@@ -93,13 +111,24 @@ class FormulaBook:
 @ft.observable
 @dataclass
 class SearchOptions:
+    known_only: bool = False
     catalog_page: int = 1
-    min_level: int = 0
+    min_level: int = 0 # DEPRECATED
     max_level: int = 20
+    sort_asc: bool = True
+    sort: str = "level"
+    #permited_level: set[int] = field(default_factory=set) unused
     name: str = ""
-    traits: list[str] = field(default_factory=list)
+    traits: dict[bool] = field(default_factory=dict)
 
     
+    def check_known(self):
+        self.catalog_page = 1
+        self.known_only = not self.known_only
+
+    def check_sort(self):
+        self.sort_asc = not self.sort_asc
+
     def set_name(self,name):
         self.name=name
         self.catalog_page = 1
@@ -110,12 +139,15 @@ class SearchOptions:
     def add_trait(self,trait:str):
         self.catalog_page = 1
         if not trait in self.traits:
-            self.traits.append(trait)
+            self.traits[trait] = True
 
+    def negate(self,trait:str):
+        if trait in self.traits.keys():
+            self.traits[trait] = not self.traits[trait] 
 
     def remove_trait(self,trait:str):
         self.catalog_page = 1
-        self.traits.remove(trait)
+        self.traits.pop(trait,None)
     
     def set_levels(self,low:int, high:int):
         self.catalog_page = 1
