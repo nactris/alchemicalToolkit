@@ -4,6 +4,13 @@ from typing import Dict, List, Any, Optional
 from elasticsearch import Elasticsearch
 import asyncio
 
+
+
+
+
+
+
+
 class AlchemicalDatabase:
     def __init__(self, db_name: str = "alchemical_items.db"):
         self.db_name = db_name

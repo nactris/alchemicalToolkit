@@ -1,6 +1,7 @@
 import flet as ft
 from appstate import AppState, AppContext,FormulaBook
 
+
 def traitPlate(text: str, on_delete, on_negate, negated: bool) -> ft.Control:
     return ft.Container(
         content=ft.Row(
@@ -203,7 +204,7 @@ def traitSearch(search_options: SearchOptions) -> ft.Control:
                     ft.Container(
                         padding=0,
                         border_radius=8,
-                        border=ft.Border.all(1.5, ft.Colors.PRIMARY),
+                        border=ft.Border.all(1, ft.Colors.PRIMARY),
                         content=ft.Dropdown(
                             text_size=16,
                             margin=0,

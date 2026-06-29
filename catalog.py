@@ -1,37 +1,9 @@
 import flet as ft
-from appstate import AppState, AppContext,FormulaBook
+from appstate import AppState, AppContext, FormulaBook, write_save
 from search import *
 import aon_database as aon
 import re
 from typing import Dict, Any
-import json
-import uuid
-import dialogs 
-
-FILE_PATH = "formula_books.json"
-
-def open_save():
-    with open(FILE_PATH, 'a+') as save_file:
-        save_file.seek(0)
-        content = save_file.read()
-        
-        if not content:
-            book = FormulaBook()
-            data = {book.id:book}
-            content = json.dumps(data,cls=FormulaBook.Encoder, indent=4)
-
-        data = json.loads(content)
-        return data
-
-def write_save(formula_book,data): 
-    data[formula_book.id] = formula_book.asDict()
-    with open(FILE_PATH, "w") as save:
-        json.dump(data, save,cls=FormulaBook.Encoder, indent=4)
-
-
-################################################################################################################################
-# //////////////////////////////////////////// CATALOG LIST ////////////////////////////////////////////////////////////////////
-################################################################################################################################
 
 def format_actions(match_obj):
     match match_obj.group(1).strip():
@@ -119,33 +91,29 @@ def ItemExpandedDetails(item: Dict[str, Any], trait_descriptions) -> ft.Control:
     )
 
 @ft.component
-def ItemCardCheckbox(item_id: str,save):
+def ItemCardCheckbox(item_id: str):
     formula_book = ft.use_context(AppContext).current_formula_book
-    r,reset = ft.use_state(False)
-
-
+    save_data = ft.use_context(AppContext).save_data
 
     def handle_click(e):
-        reset(not r)
+        # FormulaBook is @ft.observable, modifying it automatically triggers Flet to re-render
         formula_book.switchItem(item_id)
-        save()
+        write_save(formula_book, save_data)
 
     return ft.Container(
-        #bgcolor = ft.Colors.PRIMARY,
         border_radius=5,
         padding=25,
         content=ft.Icon(
-            ft.Icons.BOOKMARK_ROUNDED if item_id in formula_book.formulas else ft.Icons.BOOKMARK_BORDER_ROUNDED,
-            size = 30,
+            ft.Icons.BOOKMARK_ROUNDED if item_id in formula_book.formulae else ft.Icons.BOOKMARK_BORDER_ROUNDED,
+            size=30,
             color=ft.Colors.PRIMARY
         ),
         on_click=handle_click
     )
 
 @ft.component
-def itemCard(item: Dict[str, Any],save) -> ft.Control:
+def itemCard(item: Dict[str, Any]) -> ft.Control:
     formula_book = ft.use_context(AppContext).current_formula_book
-    db = ft.use_context(AppContext).db
     trait_descriptions = ft.use_context(AppContext).trait_descriptions
 
     expanded, expand = ft.use_state(False)
@@ -175,7 +143,7 @@ def itemCard(item: Dict[str, Any],save) -> ft.Control:
         ],
     )
 
-    price = aon.formula_price(item.get("level", "")) if not item.get("id","") in formula_book.get_free() else [0,"Free"]
+    price = aon.formula_price(item.get("level", "")) if not item.get("id","") in formula_book.get_free() else [0, "Free"]
 
     title_panel = ft.Container(
         on_click=on_card_press,
@@ -189,11 +157,11 @@ def itemCard(item: Dict[str, Any],save) -> ft.Control:
                         trait_list,
                         ft.Text(f"Level {item.get('level')} | {item.get('item_subcategory', 'Item')}")
                     ],
-                    expand=True, # This ensures the column leaves space for the price/icon
+                    expand=True, 
                     spacing=5
                 ),
                 ft.Text(f"{price[1] if len(price) > 1 else price}", italic=True),
-                ItemCardCheckbox(item_id=item.get("id"),save=save),
+                ItemCardCheckbox(item_id=item.get("id")),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN
         ), 
@@ -216,23 +184,25 @@ def itemCard(item: Dict[str, Any],save) -> ft.Control:
     )
 
 @ft.component
-def savedFormulaBar(formula_book,save_data):
-
+def savedFormulaBar():
+    save_data = ft.use_context(AppContext).save_data
     db = ft.use_context(AppContext).db
+    formula_book = ft.use_context(AppContext).current_formula_book
+    
+    import dialogs
     show_formula_dialog, set_show_formula_dialog = ft.use_state(False)
     show_level_dialog, set_show_level_dialog = ft.use_state(False)
     show_free_selection, set_show_free_selection = ft.use_state(False)
     show_formula_selection_dialog, set_show_formula_selection_dialog = ft.use_state(False)
 
     def get_total_formulabook_price():
-    
         return divmod(
             sum(
                 map(
                     lambda e: aon.formula_price(e.get("level", ""))[0],
                     filter(
                         lambda i: not i.get('id') in formula_book.get_free(),
-                        [db.filter_items(id=item, hide_excluded=False, is_outer_item=False, remaster_only=False)[0] for item in formula_book.formulas]
+                        [db.filter_items(id=item, hide_excluded=False, is_outer_item=False, remaster_only=False)[0] for item in formula_book.formulae]
                     )
                 )
             ),
@@ -241,34 +211,24 @@ def savedFormulaBar(formula_book,save_data):
              
     target_selection = ft.use_ref("AC")
 
-
-    free_only, set_free_only = ft.use_state(False)
-    reset_val,reset = ft.use_state(True)
-
-    def handle_formula_dialog_close(e):
-        set_show_formula_dialog(False)
+    reset_val, reset = ft.use_state(True)
 
     def handle_formula_dialog_new(e):
-        ...
+        pass # Implement later
 
     def handle_formula_dialog_delete(e):
-        ...
-
-
+        pass # Implement later
 
     ft.use_dialog(
-        dialogs.formulaBook(
-            formula_book=formula_book,
+        dialogs.formulaBookSelection(
             handle_new=handle_formula_dialog_new,
             handle_delete=handle_formula_dialog_delete,
-            setter = set_show_formula_dialog,
-            save_data=save_data,
+            setter=set_show_formula_dialog,
         ) if show_formula_dialog else None
     )
 
     ft.use_dialog(
         dialogs.levelSelection(
-            formula_book=formula_book,
             setter=set_show_level_dialog
         )
         if show_level_dialog else None
@@ -276,57 +236,50 @@ def savedFormulaBar(formula_book,save_data):
 
     ft.use_dialog(
         dialogs.freeSelection(
-            formula_book=formula_book,
-            db=db,
+            level=formula_book.level,
             key=target_selection,
             setter=set_show_free_selection,
             sub_dialog=set_show_formula_selection_dialog,
-            save=lambda: write_save(formula_book,save_data.current)
         )
         if show_free_selection else None
     )
 
     ft.use_dialog(
         dialogs.formulaSelection(
-            formula_book=formula_book,
-            db=db,
             key=target_selection,
-            setter= set_show_formula_selection_dialog,
-            save=lambda: write_save(formula_book,save_data.current)
+            setter=set_show_formula_selection_dialog,
         )
         if show_formula_selection_dialog else None
     )
-
   
     def handle_blur(e):
         reset(not reset_val)
 
     def handle_rename(e):
         formula_book.set_name(e.control.value)
-        write_save(formula_book,save_data.current)
+        write_save(formula_book, save_data)
 
-
-    total_gp,total_sp = get_total_formulabook_price()
+    total_gp, total_sp = get_total_formulabook_price()
     total_gp = int(total_gp)
-    total_sp = int(total_sp*10)
-    total= "Price: " + (f"{total_gp} gp" if total_gp else "") + (f"{' ' if total_gp else ''}{total_sp} sp" if total_sp else "" + "Free" if not total_gp and not total_sp else "")
+    total_sp = int(total_sp * 10)
+    total = "Price: " + (f"{total_gp} gp" if total_gp else "") + (f"{' ' if total_gp else ''}{total_sp} sp" if total_sp else "" + "Free" if not total_gp and not total_sp else "")
+    
     return ft.Container(
         content=ft.Row(
             controls=[
                 ft.Container(
                     border_radius=4,
-                    padding= 5,
-                    border=ft.Border.all(color=ft.Colors.PRIMARY,width=2),
+                    padding=5,
+                    border=ft.Border.all(color=ft.Colors.PRIMARY, width=2),
                     content=ft.Text("Formula Book"),
                     on_click=lambda e: set_show_formula_dialog(True)
                 ),
                 ft.TextField(
-                    label = 'Name',
-                    value = formula_book.name,
-                    on_submit = handle_rename, 
-                    on_blur = handle_blur,
+                    label='Name',
+                    value=formula_book.name,
+                    on_submit=handle_rename, 
+                    on_blur=handle_blur,
                 ),
-
                 ft.Container(expand=True),
                 ft.Text(total),
                 ft.TextButton(
@@ -343,7 +296,7 @@ def savedFormulaBar(formula_book,save_data):
                             shape=ft.RoundedRectangleBorder(radius=5),
                             padding=10,
                         ),
-                    content = ft.Text(f"Level {formula_book.level}"),
+                    content=ft.Text(f"Level {formula_book.level}"),
                     on_click=lambda e: set_show_level_dialog(True)
                 )
             ],
@@ -351,32 +304,37 @@ def savedFormulaBar(formula_book,save_data):
         ),
         bgcolor=ft.Colors.ON_SECONDARY,  
         padding=10,                  
-        margin=0,    
-                      
-        #border_radius=5,             
+        margin=0,               
     )
 
 
 @ft.component
-def catalogList(search_options: SearchOptions,formula_book:FormulaBook):
-    save_data = ft.use_ref(open_save())
+def catalogList(search_options: SearchOptions):
     db = ft.use_context(AppContext).db
-    items = sorted(filter(lambda i:( not search_options.known_only or i.get('id') in formula_book.formulas),
-    db.filter_items(
-       name=search_options.name if len(search_options.name) else None,
-       traits={"and": search_options.traits} if len(search_options.traits) else None,
-       max_level=search_options.max_level,
-       min_level=search_options.min_level
-       #permited_level = [search_options.permited_level] if len(search_options.permited_level) else None,
-    )), key=lambda x: x[search_options.sort], reverse = not search_options.sort_asc)
+    formula_book = ft.use_context(AppContext).current_formula_book
     
+    # Memoize the database query so it only runs when search filters actually change
+    def fetch_items():
+        return db.filter_items(
+            name=search_options.name if len(search_options.name) else None,
+            traits={"and": search_options.traits} if len(search_options.traits) else None,
+            max_level=search_options.max_level,
+            min_level=search_options.min_level
+        )
+    
+    raw_items = ft.use_memo(fetch_items, [search_options.name, str(search_options.traits), search_options.max_level, search_options.min_level])
 
-
+    items = sorted(
+        filter(lambda i: (not search_options.known_only or i.get('id') in formula_book.formulae), raw_items), 
+        key=lambda x: x[search_options.sort], 
+        reverse=not search_options.sort_asc
+    )
+    
     if not items:
-        return  ft.Column(
+        return ft.Column(
             expand=True,
             controls=[
-                savedFormulaBar(formula_book,save_data),ft.ListView(
+                ft.ListView(
                     controls=[
                         ft.Container(
                             content=ft.Text("No items match your criteria.", size=16), 
@@ -389,55 +347,48 @@ def catalogList(search_options: SearchOptions,formula_book:FormulaBook):
         )
 
     items_per_page = 20
-
-
     total_pages = max(1, (len(items) + items_per_page - 1) // items_per_page)
     start_idx = (search_options.catalog_page - 1) * items_per_page
     end_idx = min(start_idx + items_per_page, len(items))
+    current_items = items[start_idx:end_idx]
     
-    current_items =items[start_idx:end_idx]
-    
+    page_nav = ft.Container(
+        ft.Row(
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=0,
+            controls=[
+                ft.IconButton(
+                    icon=ft.Icons.FIRST_PAGE,
+                    disabled=search_options.catalog_page == 1,
+                    on_click=lambda e: search_options.set_catalog_page(1)
+                ),
+                ft.IconButton(
+                    icon=ft.Icons.NAVIGATE_BEFORE,
+                    disabled=search_options.catalog_page == 1,
+                    on_click=lambda e: search_options.set_catalog_page(search_options.catalog_page - 1)
+                ),
+                ft.Text(f"{search_options.catalog_page} / {total_pages}", weight=ft.FontWeight.BOLD),
+                ft.IconButton( 
+                    icon=ft.Icons.NAVIGATE_NEXT,
+                    disabled=search_options.catalog_page == total_pages,
+                    on_click=lambda e: search_options.set_catalog_page(search_options.catalog_page + 1)
+                ),
+                ft.IconButton(
+                    icon=ft.Icons.LAST_PAGE,
+                    disabled=search_options.catalog_page == total_pages,
+                    on_click=lambda e: search_options.set_catalog_page(total_pages)
+                )
+            ]
+        ), 
+        padding=-5
+    )
 
-    page_nav = ft.Container(ft.Row(
-        alignment=ft.MainAxisAlignment.CENTER,
-        spacing=0,
-        
-        controls=[
-            ft.IconButton(
-                icon=ft.Icons.FIRST_PAGE,
-                disabled=search_options.catalog_page == 1,
-                on_click=lambda e: search_options.set_catalog_page(1)
-            ),
-            ft.IconButton(
-                icon=ft.Icons.NAVIGATE_BEFORE,
-                disabled=search_options.catalog_page == 1,
-                on_click=lambda e: search_options.set_catalog_page(search_options.catalog_page - 1)
-            ),
-            ft.Text(f"{search_options.catalog_page} / {total_pages}", weight=ft.FontWeight.BOLD),
-            ft.IconButton( 
-                icon=ft.Icons.NAVIGATE_NEXT,
-                disabled=search_options.catalog_page == total_pages,
-                on_click=lambda e: search_options.set_catalog_page(search_options.catalog_page + 1)
-            ),
-            ft.IconButton(
-                icon=ft.Icons.LAST_PAGE,
-                disabled=search_options.catalog_page == total_pages,
-                on_click=lambda e: search_options.set_catalog_page(total_pages)
-            )
-        ]
-    ),padding=-5,)
-
-   #item_controls = [page_nav]
-    #item_controls+=[itemCard(item) for item in current_items]
-    #item_controls.append(page_nav)
-    item_controls=[itemCard(item,lambda: write_save(formula_book,save_data.current)) for item in current_items]
-
+    item_controls = [itemCard(item) for item in current_items]
 
     return ft.Column(
         expand=True,
         controls=[
-            savedFormulaBar(formula_book=formula_book,save_data=save_data),
-            ft.ListView(controls=item_controls, expand=True, spacing=5, padding=0,),
+            ft.ListView(controls=item_controls, expand=True, spacing=5, padding=0),
             page_nav
         ]
     )
@@ -446,13 +397,16 @@ def catalogList(search_options: SearchOptions,formula_book:FormulaBook):
 @ft.component
 def AlchemicalCatalogPage():
     search_options = ft.use_context(AppContext).search_options
-    formula_book = ft.use_context(AppContext).current_formula_book
+    
     return ft.Container(
         padding=10,
         expand=True,
-        content=ft.Row(spacing=5,controls=[
-            ft.Container(width=300,content=searchTab(search_options),bgcolor=ft.Colors.SURFACE_CONTAINER,border_radius=8,padding=10),
-            ft.Container(expand=True,content=catalogList(search_options,formula_book), padding=0),
-
+        content=ft.Row(spacing=5, controls=[
+            ft.Container(width=300, content=searchTab(search_options), bgcolor=ft.Colors.SURFACE_CONTAINER, border_radius=8, padding=10),
+            ft.Container(
+                expand=True, 
+                content=ft.Column(spacing=15, controls=[savedFormulaBar(), catalogList(search_options)]), 
+                padding=0
+            ),
         ], expand=True),
     )

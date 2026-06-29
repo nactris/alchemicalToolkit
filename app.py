@@ -1,34 +1,13 @@
 import flet as ft
 from aon_database import *
 from appstate import *
-
-
-
-
-
-
 import catalog
-@ft.component
-def CatalogView() -> ft.Control:
-    return catalog.AlchemicalCatalogPage()
-    
-
-
-import settings
-@ft.component
-def SettingsView():
-    return settings.AdvancedCraftingConfig()
-
-
-
 
 
 @ft.component
-def AppView() -> ft.Control:
-
-    empty_book = FormulaBook(name="New Formula Book")
+def AppView(save_data,book) -> ft.Control:
     app, _ = ft.use_state(
-       AppState(current_formula_book=empty_book)
+       AppState(current_formula_book=book,save_data=save_data)
     )
     cloud_icon, set_cloud_icon = ft.use_state(ft.Icons.CLOUD_DOWNLOAD)
 
@@ -45,23 +24,15 @@ def AppView() -> ft.Control:
             controls=[
                 ft.IconButton(icon= cloud_icon, icon_color=ft.Colors.ON_SURFACE,on_click=reload_database),
                 ft.Container(expand=True),
-                ft.IconButton(icon=ft.Icons.SEARCH, icon_color=ft.Colors.ON_SURFACE, on_click=lambda : ft.context.page.navigate("")),
-                ft.IconButton(icon=ft.Icons.SETTINGS, icon_color=ft.Colors.ON_SURFACE,  on_click=lambda: ft.context.page.navigate("/settings")),
+                #ft.IconButton(icon=ft.Icons.SEARCH, icon_color=ft.Colors.ON_SURFACE, on_click=lambda : ft.context.page.navigate("")),
+                #ft.IconButton(icon=ft.Icons.SETTINGS, icon_color=ft.Colors.ON_SURFACE,  on_click=lambda: ft.context.page.navigate("/settings")),
             ]
         ),
     )
 
-    return AppContext( 
-            app, 
-            lambda: ft.Router([
-                #ft.Route(path="formulas", component=FormulaView),
-                ft.Route(path="", component=CatalogView),
-                ft.Route(path="settings", component=SettingsView),
-                #ft.Route(path="free", component=FreeView),
-                ],
-                manage_views=True
-            )   
-        )
+
+    
+    return AppContext(app,catalog.AlchemicalCatalogPage)
 
 
 async def main(page: ft.Page):
@@ -74,16 +45,18 @@ async def main(page: ft.Page):
     page.fonts = {
         "PF2e Icons": "assets/fonts/Pathfinder2eActions.ttf",
     }
-    #page.floating_action_button = ft.FloatingActionButton(
-    #    icon=ft.Icons.SHOPPING_CART_OUTLINED,
-    #    shape=ft.CircleBorder(),
-    #)
+
     page.floating_action_button_location = ft.FloatingActionButtonLocation.CENTER_DOCKED
 
     
+    save_data = open_save()
+    empty_book = FormulaBook(name="New Formula Book")
+    if save_data:
+        bookID =next(iter(save_data))
+        empty_book.update(save_data[bookID],bookID)
 
 
-    page.render(AppView)
+    page.render(lambda: AppView(save_data,empty_book))
 
 
 ft.run(main,assets_dir="assets")
