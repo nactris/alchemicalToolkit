@@ -37,34 +37,36 @@ class FormulaBook:
     name: str = "Empty Formula Book"
     level: str = 1
     formulae: list[str] = field(default_factory=list)
-    free_selection: dict[list] = field(default_factory=dict)
+    free_selection: dict = field(default_factory=dict) # Fixed type annotation
     
 
     def mark_free(self, key, itemId: str):
         if not itemId in self.formulae:
-            self.formulae.append(itemId)
-            self.formulae = list(self.formulae)
+            self.formulae = self.formulae + [itemId] 
         
-        if not key in self.free_selection:
-            self.free_selection[key] = []
+        new_selection = {k: list(v) for k, v in self.free_selection.items()}
+        
+        if not key in new_selection:
+            new_selection[key] = []
 
         if key == "AC" or key == 1:
-            if len(self.free_selection[key]) < 4:
-                self.free_selection[key].append(itemId)
+            if len(new_selection[key]) < 4:
+                new_selection[key].append(itemId)
         else:
-            if len(self.free_selection[key]) < 2:
-                self.free_selection[key].append(itemId)
+            if len(new_selection[key]) < 2:
+                new_selection[key].append(itemId)
 
-        self.free_selection = dict(self.free_selection) 
+        self.free_selection = new_selection 
 
     def get_free(self):
         return [item for sublist in self.free_selection.values() for item in sublist]
 
     def remove_free(self, key, order):
-        if key in self.free_selection and len(self.free_selection[key]) > order:
-            self.free_selection[key].pop(order)
+        new_selection = {k: list(v) for k, v in self.free_selection.items()}
+        if key in new_selection and len(new_selection[key]) > order:
+            new_selection[key].pop(order)
             
-            self.free_selection = dict(self.free_selection)
+        self.free_selection = new_selection
 
     def update(self, data, id): 
         self.id = id
@@ -81,27 +83,25 @@ class FormulaBook:
 
     def add(self, id: str):
         if not id in self.formulae:
-            self.formulae.append(id)
-            self.formulae = list(self.formulae) 
+            self.formulae = self.formulae + [id] 
 
     def switchItem(self, id: str):
         if not id in self.formulae:
-            self.formulae.append(id)
+            self.formulae = self.formulae + [id]
         else:
             self.remove(id)
-            
-            
-        self.formulae = list(self.formulae) 
 
     def remove(self, id: str):
-        for key, itemList in self.free_selection.items():
+        new_selection = {k: list(v) for k, v in self.free_selection.items()}
+        for key, itemList in new_selection.items():
             if id in itemList:
-                self.free_selection[key].remove(id)
-        if id in self.formulae:
-            self.formulae.remove(id)
+                itemList.remove(id)
+        self.free_selection = new_selection
 
-        self.free_selection = dict(self.free_selection)
-        self.formulae = list(self.formulae)
+        if id in self.formulae:
+            new_formulae = list(self.formulae)
+            new_formulae.remove(id)
+            self.formulae = new_formulae
 
     def asDict(self):
         return  {
@@ -139,6 +139,7 @@ class SearchOptions:
     #permited_level: set[int] = field(default_factory=set) # Unused
     name: str = ""
     traits: dict[bool] = field(default_factory=dict)
+    keywords: list[str] = field(default_factory=list)
 
     
     def check_known(self):
@@ -160,6 +161,8 @@ class SearchOptions:
         if not trait in self.traits:
             self.traits[trait] = True
 
+   
+
     def negate(self,trait:str):
         if trait in self.traits.keys():
             self.traits[trait] = not self.traits[trait] 
@@ -167,7 +170,22 @@ class SearchOptions:
     def remove_trait(self,trait:str):
         self.catalog_page = 1
         self.traits.pop(trait,None)
-    
+
+
+    def add_keyword(self,key:str):
+        self.catalog_page = 1
+        if not key in self.keywords:
+            self.keywords = self.keywords + [key]
+
+
+
+    def remove_keyword(self,key:str):
+        self.catalog_page = 1
+        if key in self.keywords:
+            keys = list(self.keywords)
+            keys.remove(key)
+            self.keywords = keys
+
     def set_levels(self,low:int, high:int):
         self.catalog_page = 1
         self.max_level = high
@@ -182,6 +200,11 @@ class AppState:
     db: AlchemicalDatabase = AlchemicalDatabase("alchemical_items.db")
     trait_descriptions: dict = field(default_factory=lambda: {trait: db.get_trait_description(trait) for trait in  db.get_all_traits() } )
     save_data:dict = field(default_factory=dict)
+    db_version: int = 0
+
+    def update_db(self):
+        self.trait_descriptions = {trait: db.get_trait_description(trait) for trait in  db.get_all_traits() }
+        self.db_version += 1
     
 
     

@@ -1,6 +1,6 @@
 import flet as ft
 from appstate import AppState, AppContext,FormulaBook
-
+import aon_database as aon
 
 def traitPlate(text: str, on_delete, on_negate, negated: bool) -> ft.Control:
     return ft.Container(
@@ -36,13 +36,16 @@ def traitPlate(text: str, on_delete, on_negate, negated: bool) -> ft.Control:
 
 @ft.component 
 def searchTab(search_options: SearchOptions):
+    ver = ft.use_context(AppContext).db_version
     return ft.Column(
+        scroll = ft.ScrollMode.AUTO,
         alignment = ft.MainAxisAlignment.START,
         controls=[
             #select added 
             #filter by some other stuff descriptions?
             nameSearch(search_options),
-            traitSearch(search_options),
+            traitSearch(search_options,ver),
+            keywordSearch(search_options),
             levelSearch(search_options)
             
         ]
@@ -175,11 +178,17 @@ def levelSearch(search_options: SearchOptions):
             ),
         )
     
-
 @ft.component
-def traitSearch(search_options: SearchOptions) -> ft.Control:
+def traitSearch(search_options: SearchOptions,ver:int) -> ft.Control:
     trait_field, set_trait_field = ft.use_state("")
-    trait_list = ft.use_context(AppContext).trait_descriptions
+
+    def fetch_traits():
+        return ft.use_context(AppContext).trait_descriptions
+
+
+
+    trait_list = ft.use_memo(fetch_traits, [ver])
+
 
     def handle_change(e):
         pass
@@ -218,6 +227,7 @@ def traitSearch(search_options: SearchOptions) -> ft.Control:
                             editable=True,
                             menu_height=280,
                             label="Traits",
+                            disabled = not len(trait_list),
                             border=ft.InputBorder.NONE,
                             on_text_change=handle_change,
                             on_select=handle_select,
@@ -242,3 +252,93 @@ def traitSearch(search_options: SearchOptions) -> ft.Control:
         
     )
     return content
+
+def keywordPlate(text: str, on_delete) -> ft.Control:
+    return ft.Container(
+        content=ft.Row(
+            controls=[
+                ft.Text(
+                    value=text.capitalize(),
+                    size=14,
+                ),
+            ],
+            spacing=8,
+            tight=True,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
+        padding=ft.Padding.symmetric(vertical=4, horizontal=5),
+        bgcolor=ft.Colors.SURFACE_CONTAINER_LOW,  
+        border=ft.Border.all(1, ft.Colors.PRIMARY), 
+        border_radius=6,
+        
+        on_click=on_delete, 
+    )
+
+@ft.component
+def keywordSearch(search_options: SearchOptions) -> ft.Control:
+    
+    key_field, set_key_field = ft.use_state("")
+    keywords = aon.list_keywords()
+
+    def handle_change(e):
+        pass
+
+    def handle_select(e):
+        search_options.add_keyword(e.control.value)
+        print(search_options.keywords)
+        set_key_field("")
+
+
+
+    content = ft.Container(
+        padding=15,
+        border_radius=8,
+        border=ft.Border.all(1.5, ft.Colors.PRIMARY_CONTAINER),
+        content=ft.Row(
+                    spacing=10,  
+                    wrap=True,         
+                    run_spacing=10,
+                    expand=True,
+                    alignment=ft.MainAxisAlignment.START,
+                    controls=([
+                    ft.Container(
+                        padding=0,
+                        border_radius=8,
+                        border=ft.Border.all(1, ft.Colors.PRIMARY),
+                        content=ft.Dropdown(
+                            text_size=16,
+                            margin=0,
+                            enable_filter = True,
+                            enable_search = True,
+                            dense=True,
+                            expand=True,
+                            leading_icon = ft.Icons.SEARCH,
+                            content_padding = ft.Padding.symmetric(vertical = 5, horizontal = 0),
+                            value=key_field,
+                            editable=True,
+                            menu_height=280,
+                            label="Keywords",
+                            border=ft.InputBorder.NONE,
+                            on_text_change=handle_change,
+                            on_select=handle_select,
+                                options=[
+                                ft.DropdownOption(key=value, text=value.capitalize())
+                                for value in (set(keywords) - set(search_options.keywords))
+                            ],
+                        )
+                    ),
+                          
+                    *[
+                        keywordPlate(
+                            key,
+                            lambda e, k=key: search_options.remove_keyword(k),
+                        )
+                        for key in search_options.keywords
+                    ]])
+                )
+            
+        
+    )
+    return content
+
+

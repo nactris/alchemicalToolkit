@@ -3,6 +3,7 @@ import sqlite3
 from typing import Dict, List, Any, Optional
 from elasticsearch import Elasticsearch
 import asyncio
+import re
 
 
 
@@ -29,11 +30,12 @@ class AlchemicalDatabase:
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
                     level INTEGER NOT NULL,
+                    keywords TEXT,
                     subcategory TEXT,
                     full_raw_data TEXT NOT NULL
                 )
             ''')
-            conn.execute('CREATE INDEX IF NOT EXISTS idx_search_coords ON alchemical_items(subcategory, level)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_search_coords ON alchemical_items(subcategory, level, keywords)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_name ON alchemical_items(name)')
 
     def save_item(self, item_json: Dict[str, Any]):
@@ -41,16 +43,17 @@ class AlchemicalDatabase:
         name = item_json.get("name")
         level = int(item_json.get("level", 0))
         subcategory = item_json.get("item_subcategory")
+        keywords = json.dumps(get_keywords(item_json.get("text", "")))
         full_raw_data = json.dumps(item_json)
 
         if not item_id or not name:
-            return  # skip malformed data
+            return  
 
         with self._get_connection() as conn:
             conn.execute('''
-                INSERT OR REPLACE INTO alchemical_items (id, name, level, subcategory, full_raw_data)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (item_id, name, level, subcategory, full_raw_data))
+                INSERT OR REPLACE INTO alchemical_items (id, name, level, subcategory, keywords, full_raw_data)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (item_id, name, level, subcategory, keywords, full_raw_data))
 
     def _create_trait_table(self):
 
@@ -94,6 +97,7 @@ class AlchemicalDatabase:
                      remaster_only = True,
                      hide_excluded = True,
                      is_outer_item = True,
+                     keywords: Optional[List[str]] = None,
                      traits: Optional[Dict[str, List[str]]] = None) -> List[Dict[str, Any]]:
 
         query = "SELECT DISTINCT full_raw_data FROM alchemical_items WHERE 1=1"
@@ -151,6 +155,7 @@ class AlchemicalDatabase:
             query += """ AND (
             json_type(full_raw_data, '$.item_parent_id') IS NULL
             )"""
+
         if traits:
             for tag in traits.get("and", []):
                 query += """ AND EXISTS (
@@ -168,6 +173,8 @@ class AlchemicalDatabase:
                 )"""
                 params.extend(or_tags)
 
+     
+
             for tag in traits.get("not", []):
                 query += """ AND NOT EXISTS (
                     SELECT 1 FROM json_each(alchemical_items.full_raw_data, '$.trait') 
@@ -175,6 +182,13 @@ class AlchemicalDatabase:
                 )"""
                 params.append(tag)
             
+        if keywords:
+            for keyword in keywords:
+                query += """ AND EXISTS (
+                    SELECT 1 FROM json_each(alchemical_items.keywords)
+                    WHERE json_each.value LIKE ?
+                )"""
+                params.append(keyword)
 
         with self._get_connection() as conn:
             cursor = conn.execute(query, params)
@@ -228,8 +242,29 @@ class AlchemicalDatabase:
             traits_list = json.loads(row[0]) if row[0] else []
             return sorted(traits_list)
 
+def list_keywords():
+    return  ["counteract","blinded", "concealed", "dazzled", "deafened", "invisible", "doomed", "dying", "unconscious", "wounded", "clumsy", "drained", "enfeebled", "stupefied"]
+
+#def list_skills():
+    #return [Acrobatics | Arcana | Athletics | Crafting | Deception | Diplomacy | Intimidation | Lore | Medicine | Nature | Occultism | Performance | Religion | Society | Stealth | Survival | Thievery
+#]
+
+def get_keywords(desc: str) -> list[str]:
+    if not desc:
+        return []
+    keywords = list_keywords()
+    selected = []
+    desc = desc.lower() 
+    
+    for word in keywords:
+        if re.search(r'\b' + re.escape(word) + r'\b', desc):
+            selected.append(word)
+            
+    return selected
+
 
 async def download_database(db_instance: AlchemicalDatabase, save_json=False):
+    await asyncio.sleep(0.01)
     es = Elasticsearch(
         "https://elasticsearch.aonprd.com/",
         headers={"Accept": "application/json", "Content-Type": "application/json"}
@@ -251,7 +286,7 @@ async def download_database(db_instance: AlchemicalDatabase, save_json=False):
         )
         hits = response.get('hits', {}).get('hits', [])
         raw_items = [hit['_source'] for hit in hits]
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0)
 
         if save_json:
             with open(f"pf2e_alchemical_items.json", 'w', encoding='utf-8') as f:

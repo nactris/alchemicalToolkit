@@ -91,12 +91,11 @@ def ItemExpandedDetails(item: Dict[str, Any], trait_descriptions) -> ft.Control:
     )
 
 @ft.component
-def ItemCardCheckbox(item_id: str):
+def ItemCardCheckbox(item_id: str, is_known: bool):
     formula_book = ft.use_context(AppContext).current_formula_book
     save_data = ft.use_context(AppContext).save_data
 
     def handle_click(e):
-        # FormulaBook is @ft.observable, modifying it automatically triggers Flet to re-render
         formula_book.switchItem(item_id)
         write_save(formula_book, save_data)
 
@@ -104,16 +103,15 @@ def ItemCardCheckbox(item_id: str):
         border_radius=5,
         padding=25,
         content=ft.Icon(
-            ft.Icons.BOOKMARK_ROUNDED if item_id in formula_book.formulae else ft.Icons.BOOKMARK_BORDER_ROUNDED,
+            # Rely on the boolean passed in, rather than context
+            ft.Icons.BOOKMARK_ROUNDED if is_known else ft.Icons.BOOKMARK_BORDER_ROUNDED,
             size=30,
             color=ft.Colors.PRIMARY
         ),
         on_click=handle_click
     )
-
 @ft.component
-def itemCard(item: Dict[str, Any]) -> ft.Control:
-    formula_book = ft.use_context(AppContext).current_formula_book
+def itemCard(item: Dict[str, Any], is_free: bool, is_known: bool) -> ft.Control:
     trait_descriptions = ft.use_context(AppContext).trait_descriptions
 
     expanded, expand = ft.use_state(False)
@@ -143,7 +141,7 @@ def itemCard(item: Dict[str, Any]) -> ft.Control:
         ],
     )
 
-    price = aon.formula_price(item.get("level", "")) if not item.get("id","") in formula_book.get_free() else [0, "Free"]
+    price = aon.formula_price(item.get("level", "")) if not is_free else [0, "Free"]
 
     title_panel = ft.Container(
         on_click=on_card_press,
@@ -161,7 +159,8 @@ def itemCard(item: Dict[str, Any]) -> ft.Control:
                     spacing=5
                 ),
                 ft.Text(f"{price[1] if len(price) > 1 else price}", italic=True),
-                ItemCardCheckbox(item_id=item.get("id")),
+                # Pass is_known to the checkbox!
+                ItemCardCheckbox(item_id=item.get("id"), is_known=is_known),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN
         ), 
@@ -195,14 +194,31 @@ def savedFormulaBar():
     show_free_selection, set_show_free_selection = ft.use_state(False)
     show_formula_selection_dialog, set_show_formula_selection_dialog = ft.use_state(False)
 
+    def find(item):
+        i = db.filter_items(id=item, hide_excluded=False, is_outer_item=False, remaster_only=False)
+        if i:
+            return i[0]
+        return None
+
+    def getLevel(item):
+        if item: 
+            return aon.formula_price(item.get("level", ""))[0]    
+        return 0
+    
+    def getID(item):
+        if item: 
+            return not item.get('id') in formula_book.get_free()    
+        return False
+
+
     def get_total_formulabook_price():
         return divmod(
             sum(
                 map(
-                    lambda e: aon.formula_price(e.get("level", ""))[0],
+                    getLevel,
                     filter(
-                        lambda i: not i.get('id') in formula_book.get_free(),
-                        [db.filter_items(id=item, hide_excluded=False, is_outer_item=False, remaster_only=False)[0] for item in formula_book.formulae]
+                        getID,
+                        [find(item) for item in formula_book.formulae]
                     )
                 )
             ),
@@ -310,19 +326,20 @@ def savedFormulaBar():
 
 @ft.component
 def catalogList(search_options: SearchOptions):
-    db = ft.use_context(AppContext).db
-    formula_book = ft.use_context(AppContext).current_formula_book
+    app = ft.use_context(AppContext)
+    db = app.db
+    formula_book = app.current_formula_book
     
-    # Memoize the database query so it only runs when search filters actually change
     def fetch_items():
         return db.filter_items(
             name=search_options.name if len(search_options.name) else None,
             traits={"and": search_options.traits} if len(search_options.traits) else None,
             max_level=search_options.max_level,
-            min_level=search_options.min_level
+            min_level=search_options.min_level,
+            keywords = search_options.keywords  if len(search_options.keywords) else None 
         )
     
-    raw_items = ft.use_memo(fetch_items, [search_options.name, str(search_options.traits), search_options.max_level, search_options.min_level])
+    raw_items = ft.use_memo(fetch_items, [app.db_version, search_options.name, str(search_options.traits), search_options.max_level, search_options.min_level,search_options.keywords])
 
     items = sorted(
         filter(lambda i: (not search_options.known_only or i.get('id') in formula_book.formulae), raw_items), 
@@ -382,14 +399,23 @@ def catalogList(search_options: SearchOptions):
         ), 
         padding=-5
     )
+    free_item_ids = formula_book.get_free()
+    known_item_ids = formula_book.formulae
 
-    item_controls = [itemCard(item) for item in current_items]
+    item_controls = [
+        itemCard(
+            item=item, 
+            is_free=item.get("id") in free_item_ids, 
+            is_known=item.get("id") in known_item_ids
+        ) 
+        for item in current_items
+    ]
 
     return ft.Column(
         expand=True,
         controls=[
             ft.ListView(controls=item_controls, expand=True, spacing=5, padding=0),
-            page_nav
+            page_nav # Assuming your existing page_nav container is here
         ]
     )
 
@@ -397,7 +423,7 @@ def catalogList(search_options: SearchOptions):
 @ft.component
 def AlchemicalCatalogPage():
     search_options = ft.use_context(AppContext).search_options
-    
+
     return ft.Container(
         padding=10,
         expand=True,
