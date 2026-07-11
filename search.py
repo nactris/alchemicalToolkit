@@ -64,6 +64,7 @@ def nameSearch(search_options: SearchOptions):
         search_options.max_level=20
         search_options.traits={}
         search_options.name =""
+        search_options.keywords=[]
 
 
     return ft.Container(

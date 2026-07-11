@@ -124,15 +124,15 @@ def refreshLayer(level: int, key, setter):
         setter(False)
 
     items_per_page = 20
-    items = [db.filter_items(id=id, hide_excluded=False, is_outer_item=True, remaster_only=False)[0] for id in formula_book.formulae]
+    items = [db.filter_items(id=id, hide_excluded=False, remaster_only=False)[0] for id in formula_book.formulae]
     items = sorted([el for el in items if el.get("id") not in formula_book.get_free() and el.get('level') <= level], key=lambda x: x['level'])
 
-    current_page = ft.use_ref(1)
+    current_page,set_page = ft.use_state(1)
     def handle_page_shift(s):
-        current_page.current = s
+        set_page(s)
 
     total_pages = max(1, (len(items) + items_per_page - 1) // items_per_page)
-    start_idx = (current_page.current - 1) * items_per_page
+    start_idx = (current_page - 1) * items_per_page
     end_idx = min(start_idx + items_per_page, len(items))
     current_items = items[start_idx:end_idx]
     
@@ -141,16 +141,16 @@ def refreshLayer(level: int, key, setter):
             alignment=ft.MainAxisAlignment.CENTER,
             spacing=0,
             controls=[
-                ft.IconButton(icon=ft.Icons.FIRST_PAGE, disabled=current_page.current == 1, on_click=lambda e: handle_page_shift(1)),
-                ft.IconButton(icon=ft.Icons.NAVIGATE_BEFORE, disabled=current_page.current == 1, on_click=lambda e: handle_page_shift(current_page.current - 1)),
-                ft.Text(f"{current_page.current} / {total_pages}", weight=ft.FontWeight.BOLD),
-                ft.IconButton(icon=ft.Icons.NAVIGATE_NEXT, disabled=current_page.current == total_pages, on_click=lambda e: handle_page_shift(current_page.current + 1)),
-                ft.IconButton(icon=ft.Icons.LAST_PAGE, disabled=current_page.current == total_pages, on_click=lambda e: handle_page_shift(total_pages))
+                ft.IconButton(icon=ft.Icons.FIRST_PAGE, disabled=current_page == 1, on_click=lambda e: handle_page_shift(1)),
+                ft.IconButton(icon=ft.Icons.NAVIGATE_BEFORE, disabled=current_page == 1, on_click=lambda e: handle_page_shift(current_page - 1)),
+                ft.Text(f"{current_page} / {total_pages}", weight=ft.FontWeight.BOLD),
+                ft.IconButton(icon=ft.Icons.NAVIGATE_NEXT, disabled=current_page == total_pages, on_click=lambda e: handle_page_shift(current_page + 1)),
+                ft.IconButton(icon=ft.Icons.LAST_PAGE, disabled=current_page == total_pages, on_click=lambda e: handle_page_shift(total_pages))
             ]
         ), padding=-5
     )
 
-    content = [
+    content = [*[
         ft.Row(
             controls=[
                 ft.Button(
@@ -166,7 +166,8 @@ def refreshLayer(level: int, key, setter):
                     ),
                 ) 
             ]
-        ) for formula in current_items
+        ) for formula in current_items],
+        page_nav
     ]
 
     return ft.Column(
@@ -305,7 +306,7 @@ def freeSelection(level: int, key, setter, sub_dialog) -> ft.AlertDialog:
                 controls=[
                     formulaCategory(sub_dialog, "Alchemical Crafting", key, "AC", 4),
                     formulaCategory(sub_dialog, "Research field", key, "RF", 2),
-                    *[formulaCategory(sub_dialog, f"Level {i}", key, i, 4 if i == 1 else 2) for i in range(1, level + 1)],
+                    *[formulaCategory(sub_dialog, f"Level {i}", key,f"{i}", 2) for i in range(1, level + 1)],
                 ]
             ),
         )

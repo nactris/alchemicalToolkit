@@ -192,6 +192,7 @@ class AlchemicalDatabase:
 
         with self._get_connection() as conn:
             cursor = conn.execute(query, params)
+            
             return [json.loads(row[0]) for row in cursor.fetchall()]
     
 
@@ -314,7 +315,7 @@ def formula_price(level:int) -> int:
         level = 20
 
     prices = [0.5, 1, 2, 3, 5, 8, 13, 18, 25, 35, 50, 70, 100, 150, 225, 325, 500, 750, 1200, 2000, 3500]   
-    return (prices[level], f"{int(prices[level] * 10 if level == 0 else 1)} {'sp' if level == 0 else 'gp'}")
+    return (prices[level], f"{int(prices[level] * 10 if level == 0 else prices[level])} {'sp' if level == 0 else 'gp'}")
 
 
 async def download_traits(db_instance: AlchemicalDatabase, save_json=True):

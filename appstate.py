@@ -6,7 +6,7 @@ import json
 import uuid
 import re
 
-AppContext: ft.ContextProvider[AppState | None] = ft.create_context(None)
+
 
 FILE_PATH = "formula_books.json"
 
@@ -206,5 +206,5 @@ class AppState:
         self.trait_descriptions = {trait: db.get_trait_description(trait) for trait in  db.get_all_traits() }
         self.db_version += 1
     
-
+AppContext: ft.ContextProvider[AppState | None] = ft.create_context(None)
     

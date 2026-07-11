@@ -133,7 +133,7 @@ def itemCard(item: Dict[str, Any], is_free: bool, is_known: bool) -> ft.Control:
                 content=ft.Container(
                     border=ft.Border.all(0, ft.Colors.ON_SECONDARY_FIXED),
                     tooltip=trait_descriptions.get(trait), 
-                    content=ft.Text(trait, size=13),       
+                    content=ft.Text(trait, size=13, color = ft.Colors.PRIMARY),       
                     padding=ft.Padding(left=3, right=3, bottom=1, top=1),              
                 ),
             )
@@ -331,14 +331,15 @@ def catalogList(search_options: SearchOptions):
     formula_book = app.current_formula_book
     
     def fetch_items():
-        return db.filter_items(
+        out = db.filter_items(
             name=search_options.name if len(search_options.name) else None,
-            traits={"and": search_options.traits} if len(search_options.traits) else None,
+            traits={"and": search_options.traits.keys()} if len(search_options.traits) else None,
             max_level=search_options.max_level,
             min_level=search_options.min_level,
             keywords = search_options.keywords  if len(search_options.keywords) else None 
         )
-    
+        print(f"refreshed with {len(out)}")
+        return out
     raw_items = ft.use_memo(fetch_items, [app.db_version, search_options.name, str(search_options.traits), search_options.max_level, search_options.min_level,search_options.keywords])
 
     items = sorted(
