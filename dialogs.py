@@ -189,7 +189,7 @@ def refreshLayer(level: int, key, setter):
 
 def formulaSelection(key, setter) -> ft.AlertDialog:
     level = 1
-    if not isinstance(key.current, str):
+    if key.current != "AC" or key.current != "RF":
         level = int(key.current)
 
     return ft.AlertDialog(
@@ -258,7 +258,7 @@ def formulaCategory(sub_dialog, title, key_ref, value, slots):
     def handle_free_slot_click(e):
         key_ref.current = value
         sub_dialog(True)    
-
+    
     outputList = [itemSlot(value, i) for i, _ in enumerate(formula_book.free_selection.get(value, []))]
     remaining = slots - len(formula_book.free_selection.get(value, []))
     
@@ -306,7 +306,7 @@ def freeSelection(level: int, key, setter, sub_dialog) -> ft.AlertDialog:
                 controls=[
                     formulaCategory(sub_dialog, "Alchemical Crafting", key, "AC", 4),
                     formulaCategory(sub_dialog, "Research field", key, "RF", 2),
-                    *[formulaCategory(sub_dialog, f"Level {i}", key,f"{i}", 2) for i in range(1, level + 1)],
+                    *[formulaCategory(sub_dialog, f"Level {i}", key,str(i), 2) for i in range(1, level + 1)],
                 ]
             ),
         )

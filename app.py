@@ -22,6 +22,20 @@ def AppView(save_data,book) -> ft.Control:
             set_cloud_icon(ft.Icons.CLOUD_DOWNLOAD)
             set_is_loading(False)
 
+    def parse(item):
+        i = db.filter_items(id=item, hide_excluded=False, is_outer_item=False, remaster_only=False)
+        if i:
+            return i[0]
+        return None
+    
+
+    def copy_book(e):
+        collected = ' '.join([
+            f"[{item.get("name")}](https://2e.aonprd.com/Equipment.aspx?ID={item.get("id").replace("equipment-","")})\n"
+            for item in map(parse, app.current_formula_book.formulae)
+            ])
+        with open("export.md", "w") as formula:
+            formula.write(collected)
 
     def setup_appbar():
         page = ft.context.page
@@ -34,6 +48,12 @@ def AppView(save_data,book) -> ft.Control:
                         icon_color=ft.Colors.ON_SURFACE,
                         on_click=reload_database,
                         disabled=is_loading  
+                    ),
+                    ft.Container(expand=True),
+                    ft.IconButton(
+                        icon=ft.Icons.LOCAL_PRINT_SHOP_ROUNDED, 
+                        icon_color=ft.Colors.ON_SURFACE,
+                        on_click=copy_book,
                     ),
                 ]
             ),
