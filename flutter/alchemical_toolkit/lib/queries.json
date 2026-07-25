@@ -1,0 +1,32 @@
+[
+	{
+		"query": {
+			"bool": {
+				"filter": [
+					{
+						"query_string": {
+							"default_operator": "AND",
+							"minimum_should_match": 0,
+							"query": "category:trait"
+						}
+					}
+				]
+			}
+		}
+	},
+	{
+		"query": {
+			"bool": {
+				"filter": [
+					{
+						"query_string": {
+							"default_operator": "AND",
+							"minimum_should_match": 0,
+							"query": "category:equipment item_category:\"Alchemical Items\""
+						}
+					}
+				]
+			}
+		}
+	}
+]
