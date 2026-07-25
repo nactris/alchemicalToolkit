@@ -15,6 +15,7 @@ class DatabaseService {
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'aon_items.db');
+    print(path);
     //await deleteDatabase(path); // -debug
     return await openDatabase(
       path,
