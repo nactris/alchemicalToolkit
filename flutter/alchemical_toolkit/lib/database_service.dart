@@ -15,7 +15,6 @@ class DatabaseService {
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'aon_items.db');
-    print(path);
     //await deleteDatabase(path); // -debug
     return await openDatabase(
       path,
@@ -85,14 +84,13 @@ class DatabaseService {
 
   Future<List<String>> getTraits() async {
   final db = await database;
-  
   final List<Map<String, dynamic>> results = await db.query(
     'trait_info',
     distinct: true,
     columns: ['name'],
   );
-  
-  return results.map((row) => row['trait_name'].toString()).toList();
+  print("fetched ${results.length} traits");
+  return results.map((row) => row['name'].toString()).toList();
 }
 
   Future<List<Map<String, dynamic>>> fetchAlchemicalItems() async {
@@ -214,7 +212,7 @@ class DatabaseService {
 
 
         // populate traits from query
-        final List<dynamic> traits = source['traits'] ?? [];
+        final List<dynamic> traits = source['trait'] ?? [];
         for (var trait in traits) {
           await txn.insert(
             'traits',
@@ -243,12 +241,10 @@ class DatabaseService {
 
 
       }
-
       for (var trait in uniqueTraitsEncountered) {
-
         final query = trait.toLowerCase();
-        final matches = traitHits.where(
-          (item) => (item['name'] as String? ?? '').toLowerCase() == query,
+        final matches = traitHits.map((item) => item['_source']).where(
+          (item) => (item['name']).toLowerCase() == query,
         ).toList();
         
         final traitData = matches.firstWhere(
@@ -271,7 +267,6 @@ class DatabaseService {
 
   }
 
-  // Query saved items from local SQLite DB
   Future<List<Map<String, dynamic>>> getLocalItems() async {
     final db = await database;
     return await db.query('items');
@@ -340,8 +335,13 @@ class DatabaseService {
     }
 
     if (legacy != null) {
-      whereClauses.add('legacy = ?');
-      whereArgs.add(legacy ? 1 : 0);
+      if (legacy) {
+        whereClauses.add("(legacy_id IS NULL OR legacy_id = '')");
+      }
+      else {
+        whereClauses.add("(remaster_id IS NULL OR remaster_id = '')");
+      }
+     
     }
 
     if (hideExcluded) {
@@ -403,5 +403,28 @@ class DatabaseService {
     return resultsWithChildren;
   }
 
-  
+  bool isUniform(String parentName, String childName) {
+  final pName = parentName.trim().toLowerCase();
+  final cName = childName.trim().toLowerCase();
+
+  if (cName == pName) {
+    return true;
+  }
+
+  final uniformKeywords = [
+    'minor', 'lesser', 'moderate', 'greater', 'major', 'supreme', 'true', 'standard',
+    'type i', 'type ii', 'type iii', 'type iv', 'type v',
+    'type 1', 'type 2', 'type 3', 'type 4', 'type 5',
+    'dose', 'dose or round', 'round', 'horn', 'keg',
+    'aged', 'experimental', 'refined', 'pure',
+    'power',
+  ];
+
+  bool hasKeyword = uniformKeywords.any((keyword) => cName.contains(keyword));
+  if (hasKeyword) {
+    return true;
+  }
+  return false;
+}
+
 }
