@@ -10,10 +10,9 @@ class FilterPanel extends StatefulWidget {
 
   const FilterPanel({
     super.key,
-    List<String>? traits,
+    required this.traits,
     required this.onChanged,
     required this.criteria,
-    //required FilterCriteria criteria,
     this.keywords = const [
       "Counteract",
       "Blinded",
@@ -30,7 +29,7 @@ class FilterPanel extends StatefulWidget {
       "Enfeebled",
       "Stupefied",
     ],
-  }) : traits = traits ?? const [];
+  });
 
   @override
   State<FilterPanel> createState() => _FilterPanelState();
@@ -42,11 +41,12 @@ class _FilterPanelState extends State<FilterPanel> {
   final TextEditingController _minimumValueControler = TextEditingController();
   final SearchController _keywordController = SearchController();
   final SearchController _traitController = SearchController();
-  List<String> _traits = [];
+
 
   @override
   void initState() {
     super.initState();
+   
   }
 
   @override
@@ -119,6 +119,7 @@ class _FilterPanelState extends State<FilterPanel> {
                       Expanded(
                         child: _buildLevelSelect(
                           boxLabel: "Min",
+                          max: widget.criteria.maxLevel,
                           currentValue: widget.criteria.minLevel,
                           onChanged: (val) {
                             if (val != null) {
@@ -138,10 +139,11 @@ class _FilterPanelState extends State<FilterPanel> {
                       Expanded(
                         child: _buildLevelSelect(
                           boxLabel: "Max",
-                          currentValue: widget.criteria.minLevel,
+                          min: widget.criteria.minLevel,
+                          currentValue: widget.criteria.maxLevel,
                           onChanged: (val) {
                             if (val != null) {
-                              widget.criteria.minLevel = val;
+                              widget.criteria.maxLevel = val;
                               _updateCriteria();
                             }
                           },
@@ -515,7 +517,7 @@ class _FilterPanelState extends State<FilterPanel> {
   Widget _buildKeywordSelector() {
     final colorScheme = Theme.of(context).colorScheme;
 
-    final availableTraits = widget.keywords
+    final availableKeywords = widget.keywords
         .where((keyword) => !widget.criteria.selectedKeywords.contains(keyword))
         .toList();
 
@@ -577,7 +579,7 @@ class _FilterPanelState extends State<FilterPanel> {
       suggestionsBuilder: (context, controller) {
         final query = controller.text.toLowerCase();
 
-        final filtered = availableTraits.where((keyword) {
+        final filtered = availableKeywords.where((keyword) {
           return keyword.toLowerCase().contains(query);
         }).toList();
 

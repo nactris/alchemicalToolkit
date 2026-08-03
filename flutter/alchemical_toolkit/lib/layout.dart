@@ -1,7 +1,5 @@
 import 'package:alchemical_toolkit/file_service.dart';
 import 'package:alchemical_toolkit/theme_color_grid.dart';
-import 'package:flutter/foundation.dart';
-
 import 'database_service.dart';
 import 'filter_details.dart';
 import 'package:flutter/material.dart';
@@ -143,26 +141,62 @@ class FormulaBook {
 class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
   final DatabaseService _dbService = DatabaseService();
   final _fService = FileService();
-  bool _isFilterOpen = false;
+
   List<Map<String, dynamic>> _queriedCatalogItems = [];
   List<String> _traits = [];
   bool _isLoading = false;
   final FilterCriteria _criteria = FilterCriteria();
   FormulaBook _formulaBook = FormulaBook();
-  int currentPageIndex = 0;
+  double _totalPrice = 0;
 
   @override
   void initState() {
     super.initState();
 
     _refreshLocalItems();
+    _updatePrice();
   }
 
   Future<void> _refreshLocalItems() async {
     _handleFilterChange(_criteria);
-    final fetchedTraits = await _dbService.getTraits();
+    final fetchedTraits = await _dbService.getAllTraits();
     setState(() {
       _traits = fetchedTraits;
+    });
+  }
+
+  Future<void> _updatePrice() async {
+    final List<double> priceTags = [
+      0.5,
+      1,
+      2,
+      3,
+      5,
+      8,
+      13,
+      18,
+      25,
+      35,
+      50,
+      70,
+      100,
+      150,
+      225,
+      325,
+      500,
+      750,
+      1200,
+      2000,
+      3500,
+    ];
+    final double calcPrice = (await Future.wait(
+      _formulaBook.formulae.map((entry) async {
+        final item = await _dbService.searchItems(id: entry);
+        return (priceTags[item[0]['level']]);
+      }),
+    )).fold(0.0, (a, b) => a + b);
+    setState(() {
+      _totalPrice = calcPrice;
     });
   }
 
@@ -240,9 +274,6 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
   }
 
   void _handleBookChange(FormulaBook formulaBook, bool shouldSave) async {
-    print(
-      "handling book change (save) ${_formulaBook.name} ${formulaBook.name}",
-    );
     if (shouldSave) {
       _fService.saveOrUpdate(
         itemData: formulaBook.map(),
@@ -252,12 +283,14 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     setState(() {
       _formulaBook = formulaBook;
     });
+    _updatePrice();
   }
 
-  void _toggleFilterPanel() {
-    setState(() {
-      _isFilterOpen = !_isFilterOpen;
-    });
+  void _handleLinkClick(String text, String? href, String title) {
+    if (href != null) {
+      //launchUrl(Uri.parse(href));
+      print("link clik! $text https://2e.aonprd.com$href ");
+    }
   }
 
   @override
@@ -316,6 +349,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
             ),
             child: SafeArea(
               child: FilterPanel(
+                traits: _traits,
                 criteria: _criteria,
                 onChanged: _handleFilterChange,
               ),
@@ -353,7 +387,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
         Expanded(
           child: _queriedCatalogItems.isEmpty
               ? Padding(
-                  padding: EdgeInsets.all(16.0),
+                  padding: EdgeInsets.all(4.0),
                   child: Text(
                     'No items found.',
                     style: TextStyle(color: colorScheme.onSurfaceVariant),
@@ -377,8 +411,6 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
   Widget _buildItem(Map<String, dynamic> item) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    final bool isRemaster =
-        item['remaster_id'] == null || item['remaster_id'].toString().isEmpty;
     final List<dynamic> subentries = item['children'] ?? [];
     final List<String> descriptions = parseMarkdown(item) ?? [''];
     final pureCollection = subentries.every(
@@ -387,7 +419,10 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     final pureUniform = subentries.every(
       (subItem) => _dbService.isUniform(item['name'], subItem['name']),
     );
-
+    final formatedAction = item['actions'] != null
+        ? "`${item['actions']}` "
+        : '';
+    final formatedActivation = findActionType(item['markdown']);
     return Container(
       margin: const EdgeInsets.only(bottom: 8.0),
       decoration: BoxDecoration(
@@ -396,11 +431,14 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
         border: Border.all(color: colorScheme.inversePrimary, width: 1),
       ),
       child: ExpansionTile(
+        showTrailingIcon: false,
         shape: const Border(),
         collapsedShape: const Border(),
-        tilePadding: const EdgeInsets.symmetric(
-          horizontal: 12.0,
-          vertical: 4.0,
+        tilePadding: const EdgeInsets.only(
+          top: 0,
+          bottom: 0.0,
+          left: 4.0,
+          right: 8.0,
         ),
         childrenPadding: const EdgeInsets.only(
           left: 12.0,
@@ -411,7 +449,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
         title: Row(
           children: [
             Padding(
-              padding: EdgeInsets.only(right: 10),
+              padding: EdgeInsets.all(0),
               child: IconButton(
                 style: IconButton.styleFrom(
                   shape: RoundedRectangleBorder(
@@ -419,15 +457,12 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
                   ),
                 ),
                 onPressed: () => {
-                  print(
-                    "$pureUniform $pureCollection  ${subentries.isNotEmpty} ${item['id']}",
-                  ),
+                  print(item['traits']),
                   if (!pureCollection || subentries.isEmpty)
                     {
                       _formulaBook.change(item["id"]),
                       setState(() {}),
                       _handleBookChange(_formulaBook, true),
-                      print(_formulaBook.formulae),
                     },
                 },
                 icon: Icon(
@@ -441,23 +476,115 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
                 ),
               ),
             ),
+
             Text(
-              "${item['name'] ?? 'Unknown'}   Level ${item['level'] ?? '?'} ${isRemaster ? 'Remaster' : 'Legacy'} ${subentries.isNotEmpty && !pureUniform & !pureCollection ? "varied" : ""} ${subentries.isNotEmpty && pureUniform ? "uniform" : ""} ${subentries.isNotEmpty && pureCollection ? "pure collection" : ""}",
+              "${item['name'] ?? 'Unknown'}",
               style: TextStyle(fontSize: 16, color: colorScheme.onSurface),
+            ),
+
+            Spacer(),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                //  color: colorScheme.onPrimary,
+                //  borderRadius: BorderRadius.circular(8),
+                //  border: Border.all(color: colorScheme.onPrimaryFixed, width: 2),
+              ),
+              child: Center(
+                child: Text(
+                  "${item['level']}",
+                  style: TextStyle(fontSize: 18, color: colorScheme.onSurface),
+                ),
+              ),
             ),
           ],
         ),
         children: [
+          const SizedBox(height: 4),
+          _buildTraitBar(item),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Source
+              if (item['source'] != null &&
+                  item['source'].toString().trim().isNotEmpty)
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text.rich(
+                    TextSpan(
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.onSurface,
+                      ),
+                      children: [
+                        const TextSpan(
+                          text: "Source ",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        TextSpan(
+                          text: "${item['source']}",
+                          style: const TextStyle(fontWeight: FontWeight.normal),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Usage
+              if (item['usage'] != null &&
+                  item['usage'].toString().trim().isNotEmpty)
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text.rich(
+                    TextSpan(
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.onSurface,
+                      ),
+                      children: [
+                        const TextSpan(
+                          text: "Usage ",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        TextSpan(
+                          text: "${item['usage']};",
+                          style: const TextStyle(fontWeight: FontWeight.normal),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              //const SizedBox(height: 8),
+              if (formatedActivation != null &&
+                  formatedActivation.trim().isNotEmpty)
+                // Actions / Activate
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: MarkdownBody(
+                    selectable: true,
+                     onTapLink:_handleLinkClick,
+                    styleSheet: MarkdownStyleSheet(
+                      code: const TextStyle(
+                        fontFamily: 'PF2e Icons',
+                        fontSize: 25.0,
+                      ),
+                      p: TextStyle(color: colorScheme.onSurface),
+                    ),
+
+                    data: "**Activate** $formatedAction$formatedActivation",
+                  ),
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
           if (descriptions[0].toString().isNotEmpty)
             MarkdownBody(
               selectable: true,
               data: descriptions[0].toString(),
-              onTapLink: (String text, String? href, String title) {
-                if (href != null) {
-                  //launchUrl(Uri.parse(href));
-                  print("link clik! $href");
-                }
-              },
+              onTapLink:_handleLinkClick,
               styleSheet: MarkdownStyleSheet(
                 code: const TextStyle(fontFamily: 'PF2e Icons', fontSize: 25.0),
               ),
@@ -490,6 +617,66 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     );
   }
 
+  Widget _buildTraitBar(Map<String, dynamic> item) {
+    final List<dynamic> traits = item['traits'] ?? [];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Wrap(
+            spacing: 4,
+            runSpacing: 8,
+            children: traits.map((trait) {
+              return _buildTraitPlate(trait);
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildTraitPlate(String trait) {
+    final colorScheme = Theme.of(context).colorScheme;
+    //TODO remove that?
+    final bgColor = trait == 'Uncommon'
+        ? Colors.deepOrange
+        : trait == 'Rare'
+        ? Colors.indigo
+        : trait == 'Unique'
+        ? Colors.deepPurple
+        : colorScheme.onPrimary;
+    final frameColor = trait == 'Uncommon'
+        ? Colors.deepOrangeAccent
+        : trait == 'Rare'
+        ? Colors.indigoAccent
+        : trait == 'Unique'
+        ? Colors.deepPurpleAccent
+        : colorScheme.onPrimaryFixed;
+
+    return Container(
+      padding: const EdgeInsets.only(left: 4, right: 4, top: 2, bottom: 2),
+      decoration: BoxDecoration(
+        border: Border.all(color: frameColor, width: 1),
+        borderRadius: BorderRadius.circular(6),
+        color: bgColor,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: () {},
+            child: Text(
+              trait,
+              style: TextStyle(fontSize: 12, color: colorScheme.onSurface),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSubentry(
     Map<String, dynamic> subItem,
     String? description,
@@ -510,18 +697,17 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment
+                    .start, // Aligns elements to the top when text wraps
                 children: [
                   if (!isUniform)
                     IconButton(
-                      onPressed: () => {
-                        print(subItem['id']),
-
-                        {
-                          _formulaBook.change(subItem["id"]),
-                          setState(() {}),
-                          _handleBookChange(_formulaBook, true),
-                          print(_formulaBook.formulae),
-                        },
+                      onPressed: () {
+                        print(subItem['id']);
+                        _formulaBook.change(subItem["id"]);
+                        setState(() {});
+                        _handleBookChange(_formulaBook, true);
+                        print(_formulaBook.formulae);
                       },
                       icon: Icon(
                         _formulaBook.contains(subItem['id'])
@@ -536,12 +722,38 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
                         ),
                       ),
                     ),
-                  Text(
-                    "${subItem['name'] ?? 'Unknown'}   Level ${subItem['level'] ?? '?'} ${isUniform}",
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
+
+                  // Name: Expands and wraps
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        top: 8.0,
+                      ), // Adjust to align with the icon visually
+                      child: Text(
+                        "${subItem['name'] ?? 'Unknown'}",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 8), // Gap between name and level
+                  // Level: Does not wrap
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 8.0,
+                    ), // Adjust to align with the name
+                    child: Text(
+                      "Level ${subItem['level'] ?? '?'}",
+                      softWrap: false,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                      ),
                     ),
                   ),
                 ],
@@ -550,12 +762,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
                 MarkdownBody(
                   selectable: true,
                   data: description,
-                  onTapLink: (String text, String? href, String title) {
-                    if (href != null) {
-                      //launchUrl(Uri.parse(href));
-                      print("link clik!");
-                    }
-                  },
+                  onTapLink:_handleLinkClick,
                   styleSheet: MarkdownStyleSheet(
                     code: const TextStyle(
                       fontFamily: 'PF2e Icons',
@@ -617,7 +824,48 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
 
   Widget _buildTopBar() {
     final colorScheme = Theme.of(context).colorScheme;
-    return Text("Formula Name");
+    final int gp = _totalPrice.floor();
+    final int sp = ((_totalPrice - gp) * 10).round();
+    final price = (gp > 0 ? "$gp gp" : "") + (sp > 0 ? "$sp sp" : "");
+
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsetsGeometry.only(bottom: 4, left: 8, right: 8),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: colorScheme.onSecondaryFixed,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colorScheme.inversePrimary, width: 2),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            child: Row(
+              children: [
+                Text(
+                  "${_formulaBook.name} $price",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary,
+                  ),
+                ),
+
+                Spacer(),
+                Text(
+                  "Level ${_formulaBook.level} ",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   String formatActions(Match matchObj) {
@@ -638,6 +886,14 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     }
   }
 
+  String? findActionType(String markdown) {
+    final actionsRegex = RegExp(
+      r'<row gap="tiny">\s*<row>\*\*Activate\*\*</row>\s*<actions\b[^>]*/>\s*<row>([^<]+)</row>\s*</row>',
+      dotAll: true,
+    );
+    return actionsRegex.firstMatch(markdown)?.group(1);
+  }
+
   List<String>? parseMarkdown(Map<String, dynamic> item) {
     final String descriptions = item['markdown']?.toString() ?? '';
 
@@ -645,7 +901,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
       r'<title.*?<\/column>.*?.(?:\s*?---\s*)?(.*?)(?=<c|<t|$)',
       dotAll: true,
     );
-    final linkRegex = RegExp(r'\[(.*?)]\((/.*?)\)');
+    //final linkRegex = RegExp(r'\[(.*?)]\((/.*?)\)');
     final actionsRegex = RegExp(
       r'<actions.*?"(.*?)".+?>(?: Interact)?(?:[; ]+)?',
     );
@@ -655,11 +911,11 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     for (final match in blockRegex.allMatches(descriptions)) {
       String text = match.group(1)?.trim() ?? '';
 
-      text = text.replaceAllMapped(linkRegex, (Match m) {
-        final textContent = m.group(1);
-        final urlPath = m.group(2);
-        return '[$textContent](https://2e.aonprd.com/$urlPath)';
-      });
+      // text = text.replaceAllMapped(linkRegex, (Match m) {
+      //   final textContent = m.group(1);
+      //   final urlPath = m.group(2);
+      //   return '[$textContent](https://2e.aonprd.com/$urlPath)';
+      // });
       parsedDescriptions.add(text);
     }
     parsedDescriptions = parsedDescriptions.map((text) {

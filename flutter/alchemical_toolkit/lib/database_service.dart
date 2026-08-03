@@ -29,6 +29,11 @@ class DatabaseService {
             primary_source TEXT,
             markdown TEXT,
             text TEXT,
+            usage TEXT,
+            source TEXT,
+            price TEXT, 
+            actions SMALLINT,
+            bulk TEXT,
             rarity TEXT,
             remaster_id TEXT,
             legacy_id TEXT,
@@ -36,14 +41,17 @@ class DatabaseService {
             excluded BOOL
           )
         ''');
+       
+
+
 
         await db.execute('''
           CREATE TABLE traits (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            item_id TEXT,
-            trait_name TEXT,
-            FOREIGN KEY (item_id) REFERENCES items (id) ON DELETE CASCADE
-          )
+            id TEXT ,
+            trait TEXT,
+            FOREIGN KEY (id) REFERENCES items (id) ON DELETE CASCADE
+            PRIMARY KEY (id,trait)
+            )
         ''');
 
         await db.execute('''
@@ -82,7 +90,7 @@ class DatabaseService {
   // Formula price
   //[0.5, 1, 2, 3, 5, 8, 13, 18, 25, 35, 50, 70, 100, 150, 225, 325, 500, 750, 1200, 2000, 3500]   
 
-  Future<List<String>> getTraits() async {
+  Future<List<String>> getAllTraits() async {
   final db = await database;
   final List<Map<String, dynamic>> results = await db.query(
     'trait_info',
@@ -183,14 +191,12 @@ class DatabaseService {
     final db = await database;
     final Set<String> uniqueTraitsEncountered = {};
 
-    // Perform database operations inside a single transaction for better speed and safety
     await db.transaction((txn) async {
       for (var hit in itemHits) {
         final source = hit['_source'] ?? {};
         final itemId = source['id'] ?? hit['id'] ?? 'invalid-00';
 
 
-        // populate items from query
         await txn.insert(
           'items',
           {
@@ -201,24 +207,28 @@ class DatabaseService {
             'primary_source':source['primary_source'] ?? 'invalid' ,
             'markdown':source['markdown'] ?? '' ,
             'text':source['text'] ?? '' ,
+            'source':source['primary_source_raw'] ?? '' ,
             'rarity':source['rarity'] ?? 'common' ,
             'remaster_id':source['remaster_id']?[0] ?? '' ,
             'legacy_id':source['legacy_id']?[0] ?? '' ,
             'url':source['url'] ?? '' ,
+            'price':source['price_raw'] ?? '' ,
+            'usage':source['usage'] ?? '' ,
+            'bulk':source['bulk_raw'] ?? '' ,
             'excluded':source['exclude_from_search'] ? 1 : 0 ,
+            'actions':actionsNumberToFont(source['actions_number'] ?? 9) ,
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
 
 
-        // populate traits from query
         final List<dynamic> traits = source['trait'] ?? [];
         for (var trait in traits) {
           await txn.insert(
             'traits',
             {
-              'item_id': itemId,
-              'trait_name': trait.toString(),
+              'id': itemId,
+              'trait': trait.toString(),
             },
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
@@ -277,7 +287,6 @@ class DatabaseService {
   }) async {
     final db = await database;
     
-    // We query the 'items' table instead of 'children'
     final ans = await db.query(
       'items',
       columns: ['id','name','level'],
@@ -286,6 +295,21 @@ class DatabaseService {
     );
     
     return ans;
+  }
+
+  Future<List<String>> getTraits({
+    required String id,
+  }) async {
+    final db = await database;
+    
+    final ans = await db.query(
+      'traits',
+      columns: ['trait'],
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    print(ans);
+    return ans.map((item) => item['trait'].toString()).toList();
   }
 
   Future<List<Map<String, dynamic>>> searchItems({
@@ -362,8 +386,8 @@ class DatabaseService {
         final placeholders = List.filled(includeTraits.length, '?').join(',');
         whereClauses.add('''
           id IN (
-            SELECT item_id FROM traits 
-            WHERE LOWER(trait_name) IN ($placeholders)
+            SELECT id FROM traits 
+            WHERE LOWER(trait) IN ($placeholders)
           )
         ''');
         whereArgs.addAll(includeTraits.map((t) => t.toLowerCase()));
@@ -374,8 +398,8 @@ class DatabaseService {
         final placeholders = List.filled(excludeTraits.length, '?').join(',');
         whereClauses.add('''
           id NOT IN (
-            SELECT item_id FROM traits 
-            WHERE LOWER(trait_name) IN ($placeholders)
+            SELECT id FROM traits 
+            WHERE LOWER(trait) IN ($placeholders)
           )
         ''');
         whereArgs.addAll(excludeTraits.map((t) => t.toLowerCase()));
@@ -395,6 +419,7 @@ class DatabaseService {
         
         final mutableEntry = Map<String, dynamic>.from(entry);
         mutableEntry['children'] = await getChildren(id: mutableEntry['id'].toString());
+        mutableEntry['traits'] = await getTraits(id: mutableEntry['id'].toString());
         return mutableEntry;
         
       }),
@@ -428,3 +453,22 @@ class DatabaseService {
 }
 
 }
+
+ int? actionsNumberToFont(int anum) {
+    switch (anum) {
+      // who the hell labeled this shi
+      // like omg cant you do it normaly xD
+      case 6: // aaa
+        return 3;
+      case 4: //aa
+        return 2;
+      case 2: //a
+        return 1;
+      case 1: //r
+        return 5;
+      case 0: //f
+        return 4;
+      default:
+        return null;
+    }
+  }
