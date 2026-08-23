@@ -1,3 +1,4 @@
+import 'package:alchemical_toolkit/database_service.dart';
 import 'package:alchemical_toolkit/file_service.dart';
 import 'package:flutter/material.dart';
 
@@ -23,6 +24,7 @@ class FormulaBookDetails extends StatefulWidget {
 class _FormulaBookDetailsState extends State<FormulaBookDetails> {
   late TextEditingController _nameController;
   List<SearchController> _slotControllers = [];
+  final _dbService = DatabaseService();
   final _fService = FileService();
   String _lastCategory = "Alchemical Crafting";
   @override
@@ -38,9 +40,9 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
     super.dispose();
   }
 
-  void _updateBook(bool shouldSave) {
+  Future<void> _updateBook(bool shouldSave)  async {
     print("updated details ${widget.formulaBook}");
-    widget.onChanged(widget.formulaBook, shouldSave);
+    await widget.onChanged(widget.formulaBook, shouldSave);
     _nameController.text = widget.formulaBook.name;
   }
 
@@ -86,7 +88,7 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                         onChanged: (val) {
                           if (val != null) {
                             widget.formulaBook.setLevel(val);
-                            _updateBook(true);
+                             _updateBook(true);
                           }
                         },
                       ),
@@ -95,7 +97,6 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                 ),
 
                 SizedBox(height: 12),
-                //_buildLevelField(),
                 ...List<Widget>.generate(
                   widget.formulaBook.level + 2,
                   (index) => _buildCatergory(index),
@@ -159,6 +160,14 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                     : SizedBox(
                         width: double.infinity,
                         child: Container(
+                          decoration: BoxDecoration(
+                            color: colorScheme.onPrimaryFixedVariant,
+                            borderRadius: BorderRadius.circular(8),
+                            // border: Border.all(
+                            //   color: colorScheme.onPrimaryFixedVariant,
+                            //    width: 1,
+                            //  ),
+                          ),
                           child: TextButton(
                             onPressed: () {
                               widget.formulaBook.removeFree(
@@ -191,7 +200,7 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                                                 .toInt()] ??
                                             "none",
                                       )['name'] ??
-                                      "invalid name",
+                                      "Unknown Name",
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: colorScheme.onSurfaceVariant,
@@ -199,7 +208,7 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                                 ),
                                 const Spacer(),
                                 Text(
-                                  "Level ${getItemDetails(widget.formulaBook.free[parsedIndex]?[(slotIndex / 2).toInt()] ?? "none")['level'] ?? "invalid level"}",
+                                  "Level ${getItemDetails(widget.formulaBook.free[parsedIndex]?[(slotIndex / 2).toInt()] ?? "none")['level'] ?? "Unknown Level"}",
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: colorScheme.onSurfaceVariant,
@@ -502,24 +511,312 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
   Future<void> _openBookDialog() async {
     final colorScheme = Theme.of(context).colorScheme;
     dynamic selectedHighlight;
-
     Future<List<dynamic>> booksFuture = _fService.load();
+
+    final bool isDesktop = !Platform.isAndroid && !Platform.isIOS;
 
     await showDialog(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            Future<List<Map<String, dynamic>>> parseFormulae(
+              List<dynamic> ids,
+            ) async {
+              final futures = ids.map((id) async {
+                final result = await _dbService.searchItems(id: id);
+                return result[0];
+              });
+              return await Future.wait(futures);
+            }
+
+            Widget buildBookPreview(Map<String, dynamic>? book) {
+              if (book == null) {
+                return Center(
+                  child: Text(
+                    'Select a book to preview details',
+                    style: TextStyle(color: colorScheme.onSurfaceVariant),
+                  ),
+                );
+              }
+
+              final List<dynamic> bookFormulae = book['formulae'] ?? [];
+
+              return Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          book['name'] ?? 'Unnamed Book',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          'Level ${book['level'] ?? 0}',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                      ],
+                    ),
+                    Divider(
+                      height: 24,
+                      thickness: 1,
+                      color: colorScheme.inversePrimary,
+                    ),
+
+                    Expanded(
+                      child: bookFormulae.isEmpty
+                          ? Text(
+                              'No entries in this book.',
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            )
+                          : FutureBuilder<List<Map<String, dynamic>>>(
+                              future: parseFormulae(bookFormulae),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
+                                }
+                                if (snapshot.hasError ||
+                                    !snapshot.hasData ||
+                                    snapshot.data!.isEmpty) {
+                                  return Text(
+                                    'Error or no entries found.',
+                                    style: TextStyle(color: colorScheme.error),
+                                  );
+                                }
+
+                                final formulaeData = snapshot.data!;
+                                return ListView.separated(
+                                  itemCount: formulaeData.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(height: 4),
+                                  itemBuilder: (context, index) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color:
+                                            colorScheme.onPrimaryFixedVariant,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            formulaeData[index]['name'],
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          Spacer(),
+                                          Text(
+                                            "Level ${formulaeData[index]['level']}",
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            Widget buildBookList(List<dynamic> books) {
+              print("reloading boojks");
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: books.length,
+                itemBuilder: (context, index) {
+                  final book = books[index];
+                  final time =
+                      DateTime.tryParse(book['date'] ?? "") ?? DateTime.now();
+                  final isSelected = selectedHighlight == book;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: BoxBorder.all(
+                        color: isSelected
+                            ? colorScheme.primary
+                            : colorScheme.inversePrimary,
+                        width: 2,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          title: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  book['name'] ?? "Unnamed Book",
+                                  style: TextStyle(
+                                    color: colorScheme.onSurface,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  softWrap: true,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                "Level ${book['level'] ?? 0}",
+                                style: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              parseDate(time),
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                          onTap: () {
+                            setDialogState(() {
+                              selectedHighlight = isSelected ? null : book;
+                            });
+                          },
+                        ),
+                        if (isSelected)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              left: 8.0,
+                              right: 8.0,
+                              bottom: 8.0,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      side: BorderSide(
+                                        color:
+                                            colorScheme.onPrimaryFixedVariant,
+                                        width: 1,
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      widget.formulaBook.update(book);
+                                      _updateBook(false);
+                                    },
+                                    child: const Text('Open'),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      side: BorderSide(
+                                        color:
+                                            colorScheme.onPrimaryFixedVariant,
+                                        width: 1,
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    onPressed: () async {
+                                      setDialogState(() {
+                                        selectedHighlight = null;
+                                        booksFuture = _fService.load();
+                                      });
+                                    },
+                                    child: const Text('Copy'),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      side: BorderSide(
+                                        color:
+                                            colorScheme.onPrimaryFixedVariant,
+                                        width: 1,
+                                      ),
+                                      foregroundColor: colorScheme.error,
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    onPressed: () async {
+                                      final confirm =
+                                          await _openConfirmDeleteDialog(
+                                            context: context,
+                                            bookName: book['name'] ?? 'Book',
+                                          );
+                                      if (confirm) {
+                                        await _fService.delete(book['uuid']);
+                                        setDialogState(() {
+                                          selectedHighlight = null;
+                                          booksFuture = _fService.load();
+                                        });
+                                      }
+                                    },
+                                    child: const Text('Delete'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            }
+
             return AlertDialog(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 12,
-              ),
+              contentPadding: const EdgeInsets.all(12),
               titlePadding: EdgeInsets.zero,
-              actionsPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 12,
-              ),
+              actionsPadding: const EdgeInsets.all(12),
               backgroundColor: colorScheme.onSecondaryFixed,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(6),
@@ -529,7 +826,7 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                 decoration: BoxDecoration(
                   color: colorScheme.inversePrimary,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
+                  border: BoxBorder.all(
                     color: colorScheme.inversePrimary,
                     width: 2,
                   ),
@@ -549,10 +846,10 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                 ),
               ),
               content: SizedBox(
-                width: double.maxFinite,
-                height: 400,
+                width: isDesktop ? 750 : double.maxFinite,
+                height: 420,
                 child: FutureBuilder<List<dynamic>>(
-                  future: booksFuture, // 2. Pass the cached variable here
+                  future: booksFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
@@ -560,7 +857,7 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
 
                     if (snapshot.hasError ||
                         !snapshot.hasData ||
-                        (snapshot.data as List).isEmpty) {
+                        snapshot.data!.isEmpty) {
                       return Center(
                         child: Text(
                           'No formula books found.',
@@ -571,182 +868,21 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
 
                     final books = snapshot.data!;
 
-                    return ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: books.length,
-                      itemBuilder: (context, index) {
-                        final book = books[index];
-                        final time =
-                            DateTime.tryParse(book['date'] ?? "") ??
-                            DateTime.now();
-                        final isSelected = selectedHighlight == book;
+                    if (isDesktop) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(flex: 1, child: buildBookList(books)),
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: isSelected
-                                  ? colorScheme.primary
-                                  : colorScheme.inversePrimary,
-                              width: 2,
-                            ),
+                          Expanded(
+                            flex: 2,
+                            child: buildBookPreview(selectedHighlight),
                           ),
-                          child: Column(
-                            children: [
-                              ListTile(
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 4,
-                                ),
-                                title: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        book['name'] ?? "Unnamed Book",
-                                        style: TextStyle(
-                                          color: colorScheme.onSurface,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        softWrap: true,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      "Level ${book['level'] ?? 0}",
-                                      style: TextStyle(
-                                        color: colorScheme.onSurface,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                subtitle: Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    parseDate(time),
-                                    style: TextStyle(
-                                      color: colorScheme.onSurfaceVariant,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ),
-                                onTap: () {
-                                  setDialogState(() {
-                                    selectedHighlight = isSelected
-                                        ? null
-                                        : book;
-                                  });
-                                },
-                              ),
-                              if (isSelected)
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                    left: 8.0,
-                                    right: 8.0,
-                                    bottom: 8.0,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: OutlinedButton(
-                                          style: OutlinedButton.styleFrom(
-                                            padding: EdgeInsets.zero,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            side: BorderSide(
-                                              color: colorScheme
-                                                  .onPrimaryFixedVariant,
-                                              width: 1,
-                                            ),
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                          ),
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                            widget.formulaBook.update(book);
-                                            _updateBook(false);
-                                          },
-                                          child: const Text('Open'),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: OutlinedButton(
-                                          style: OutlinedButton.styleFrom(
-                                            padding: EdgeInsets.zero,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            side: BorderSide(
-                                              color: colorScheme
-                                                  .onPrimaryFixedVariant,
-                                              width: 1,
-                                            ),
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                          ),
-                                          onPressed: () async {
-                                            // await _fService.copy(book);
-                                            print("TODO");
-                                            setDialogState(() {
-                                              selectedHighlight = null;
-                                              booksFuture = _fService.load();
-                                            });
-                                          },
-                                          child: const Text('Copy'),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: OutlinedButton(
-                                          style: OutlinedButton.styleFrom(
-                                            padding: EdgeInsets.zero,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            side: BorderSide(
-                                              color: colorScheme
-                                                  .onPrimaryFixedVariant,
-                                              width: 1,
-                                            ),
-                                            foregroundColor: colorScheme.error,
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                          ),
-                                          onPressed: () async {
-                                            final confirm =
-                                                await _openConfirmDeleteDialog(
-                                                  context: context,
-                                                  bookName:
-                                                      book['name'] ?? 'Book',
-                                                );
-                                            if (confirm) {
-                                              await _fService.delete(
-                                                book['uuid'],
-                                              );
-                                              setDialogState(() {
-                                                selectedHighlight = null;
-                                                booksFuture = _fService.load();
-                                              });
-                                            }
-                                          },
-                                          child: const Text('Delete'),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
+                        ],
+                      );
+                    }
+
+                    return buildBookList(books);
                   },
                 ),
               ),
@@ -766,13 +902,12 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                         label: const Text('New'),
                         onPressed: () async {
                           widget.formulaBook.reset();
-                          _updateBook(true);
+                          await _updateBook(true);
+                          
                           setDialogState(() {
                             selectedHighlight = null;
                             booksFuture = _fService.load();
                           });
-
-                          //Navigator.pop(context);
                         },
                       ),
                     ),

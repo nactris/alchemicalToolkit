@@ -156,10 +156,9 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
   @override
   void initState() {
     super.initState();
-
-    _refreshLocalItems();
+    _loadInitBook();
     _updatePrice();
-    _syncCachedItems();
+    _refreshLocalItems();
   }
 
   Future<void> _refreshLocalItems() async {
@@ -170,7 +169,13 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     });
   }
 
-  void _syncCachedItems() async {
+  Future<void> _loadInitBook() async {
+    final book = await _fService.getFirstOrNothing();
+    if (book != null) _formulaBook.update(book);
+    _syncCachedItems();
+  }
+
+  Future<void> _syncCachedItems() async {
     final futures = _formulaBook.formulae.map((id) async {
       final results = await _dbService.searchItems(id: id);
       return results.isNotEmpty ? results.first : <String, dynamic>{};
@@ -299,18 +304,22 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     });
   }
 
-  void _handleBookChange(FormulaBook formulaBook, bool shouldSave) async {
+  Future<void> _handleBookChange(
+    FormulaBook formulaBook,
+    bool shouldSave,
+  ) async {
     if (shouldSave) {
-      _fService.saveOrUpdate(
+      await _fService.saveOrUpdate(
         itemData: formulaBook.map(),
         uuid: formulaBook.uuid,
       );
-      _syncCachedItems();
+      await _syncCachedItems();
     }
     setState(() {
       _formulaBook = formulaBook;
     });
-    _updatePrice();
+    await _updatePrice();
+    await _syncCachedItems();
   }
 
   void _handleLinkClick(String text, String? href, String title) {
@@ -876,7 +885,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
             child: Row(
               children: [
                 Text(
-                  "${_formulaBook.name} $price ${fprice.isNotEmpty ? "+ $fprice" : ""}",
+                  "${_formulaBook.name} $price", // ${fprice.isNotEmpty ? "+ $fprice" : ""}
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,

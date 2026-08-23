@@ -41,7 +41,16 @@ class FileService {
     try {
       return items.firstWhere((item) => item['uuid'] == id);
     } catch (_) {
-      return null; // Not found
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getFirstOrNothing() async {
+    final items = await load();
+    try {
+      return items.first;
+    } catch (_) {
+      return null;
     }
   }
 

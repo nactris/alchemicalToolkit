@@ -309,7 +309,7 @@ class _FilterPanelState extends State<FilterPanel> {
               : colorScheme.onSurfaceVariant,
         ),
         label: Text(
-          'Known only',
+          'Known Only',
           style: TextStyle(
             fontSize: 12,
             color: isSelected
