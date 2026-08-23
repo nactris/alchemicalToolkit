@@ -440,6 +440,7 @@ class _FilterPanelState extends State<FilterPanel> {
               widget.criteria.selectedTraits[trait] = true;
               _updateCriteria();
               controller.closeView(trait);
+              controller.clear();
             },
           );
         });
@@ -564,7 +565,7 @@ class _FilterPanelState extends State<FilterPanel> {
         if (text.isEmpty) return;
 
         final matches = widget.keywords.where(
-          (trait) => trait.toLowerCase().contains(text.toLowerCase()),
+          (key) => key.toLowerCase().contains(text.toLowerCase()),
         );
 
         if (matches.isNotEmpty) {
@@ -594,6 +595,7 @@ class _FilterPanelState extends State<FilterPanel> {
               widget.criteria.selectedKeywords.add(keyword);
               _updateCriteria();
               controller.closeView(keyword);
+              controller.clear();
             },
           );
         });
@@ -662,7 +664,7 @@ class _FilterPanelState extends State<FilterPanel> {
                 diameterRatio: 1.5,
                 physics: const FixedExtentScrollPhysics(),
                 onSelectedItemChanged: (index) {
-                  print(index + (min ?? 0));
+                  //print(index + (min ?? 0));
                 },
                 childDelegate: ListWheelChildBuilderDelegate(
                   childCount: (max ?? 20) - (min ?? 0) + 1,

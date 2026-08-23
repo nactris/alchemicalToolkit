@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -11,7 +12,7 @@ class DatabaseService {
     _db = await _initDatabase();
     return _db!;
   }
-  
+
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'aon_items.db');
@@ -41,9 +42,6 @@ class DatabaseService {
             excluded BOOL
           )
         ''');
-       
-
-
 
         await db.execute('''
           CREATE TABLE traits (
@@ -63,7 +61,7 @@ class DatabaseService {
           )
         ''');
 
-       await db.execute('''
+        await db.execute('''
           CREATE TABLE children (
             parent_id TEXT,
             child_id TEXT,
@@ -72,34 +70,30 @@ class DatabaseService {
         ''');
 
 
-        //TODO: KEYWORD SEARCH
-
-        // await db.execute('''
-        //   CREATE TABLE traits (
-        //     id INTEGER PRIMARY KEY AUTOINCREMENT,
-        //     key TEXT,
-        //     FOREIGN KEY (item_id) REFERENCES items (id) ON DELETE CASCADE
-        //   )
-        // ''');
-
-
-
+        await db.execute('''
+            CREATE TABLE keywords (
+            id TEXT ,
+            keyword TEXT,
+            FOREIGN KEY (id) REFERENCES items (id) ON DELETE CASCADE
+            PRIMARY KEY (id,keyword)
+           )
+        ''');
       },
     );
   }
   // Formula price
-  //[0.5, 1, 2, 3, 5, 8, 13, 18, 25, 35, 50, 70, 100, 150, 225, 325, 500, 750, 1200, 2000, 3500]   
+  //[0.5, 1, 2, 3, 5, 8, 13, 18, 25, 35, 50, 70, 100, 150, 225, 325, 500, 750, 1200, 2000, 3500]
 
   Future<List<String>> getAllTraits() async {
-  final db = await database;
-  final List<Map<String, dynamic>> results = await db.query(
-    'trait_info',
-    distinct: true,
-    columns: ['name'],
-  );
-  print("fetched ${results.length} traits");
-  return results.map((row) => row['name'].toString()).toList();
-}
+    final db = await database;
+    final List<Map<String, dynamic>> results = await db.query(
+      'trait_info',
+      distinct: true,
+      columns: ['name'],
+    );
+    print("fetched ${results.length} traits");
+    return results.map((row) => row['name'].toString()).toList();
+  }
 
   Future<List<Map<String, dynamic>>> fetchAlchemicalItems() async {
     final url = Uri.parse('https://elasticsearch.aonprd.com/aon/_search');
@@ -112,21 +106,20 @@ class DatabaseService {
               "query_string": {
                 "default_operator": "AND",
                 "minimum_should_match": 0,
-                "query": "category:equipment item_category:\"Alchemical Items\""
-              }
-            }
-            
-          ]
-          
-        }
+                "query":
+                    "category:equipment item_category:\"Alchemical Items\"",
+              },
+            },
+          ],
+        },
       },
-      "size": 10000
+      "size": 10000,
     };
 
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json', 'Accept':'*/*'},
+        headers: {'Content-Type': 'application/json', 'Accept': '*/*'},
         body: jsonEncode(payload),
       );
 
@@ -148,28 +141,26 @@ class DatabaseService {
     final url = Uri.parse('https://elasticsearch.aonprd.com/aon/_search');
 
     final payload = {
-			"query": {
-				"bool": {
-					"filter": [
-						{
-							"query_string": {
-								"default_operator": "AND",
-								"minimum_should_match": 0,
-								"query": "category:trait"
-							}
-						}
-
-					]
-				
-				}
-			},
-      "size": 10000
-		};
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "query_string": {
+                "default_operator": "AND",
+                "minimum_should_match": 0,
+                "query": "category:trait",
+              },
+            },
+          ],
+        },
+      },
+      "size": 10000,
+    };
 
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json', 'Accept':'*/*'},
+        headers: {'Content-Type': 'application/json', 'Accept': '*/*'},
         body: jsonEncode(payload),
       );
 
@@ -187,7 +178,10 @@ class DatabaseService {
     }
   }
 
-  Future<void> populate(List<Map<String, dynamic>> itemHits, List<Map<String, dynamic>> traitHits) async {
+  Future<void> populate(
+    List<Map<String, dynamic>> itemHits,
+    List<Map<String, dynamic>> traitHits,
+  ) async {
     final db = await database;
     final Set<String> uniqueTraitsEncountered = {};
 
@@ -196,85 +190,94 @@ class DatabaseService {
         final source = hit['_source'] ?? {};
         final itemId = source['id'] ?? hit['id'] ?? 'invalid-00';
 
-
-        await txn.insert(
-          'items',
-          {
-            'id': source['id'] ?? 'invalidId',
-            'name': source['name'] ?? 'invalidName',
-            'level': source['level'] ?? 0,
-            'item_subcategory':source['item_subcategory'] ?? 'invalid',
-            'primary_source':source['primary_source'] ?? 'invalid' ,
-            'markdown':source['markdown'] ?? '' ,
-            'text':source['text'] ?? '' ,
-            'source':source['primary_source_raw'] ?? '' ,
-            'rarity':source['rarity'] ?? 'common' ,
-            'remaster_id':source['remaster_id']?[0] ?? '' ,
-            'legacy_id':source['legacy_id']?[0] ?? '' ,
-            'url':source['url'] ?? '' ,
-            'price':source['price_raw'] ?? '' ,
-            'usage':source['usage'] ?? '' ,
-            'bulk':source['bulk_raw'] ?? '' ,
-            'excluded':source['exclude_from_search'] ? 1 : 0 ,
-            'actions':actionsNumberToFont(source['actions_number'] ?? 9) ,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-
+        await txn.insert('items', {
+          'id': source['id'] ?? 'invalidId',
+          'name': source['name'] ?? 'invalidName',
+          'level': source['level'] ?? 0,
+          'item_subcategory': source['item_subcategory'] ?? 'invalid',
+          'primary_source': source['primary_source'] ?? 'invalid',
+          'markdown': source['markdown'] ?? '',
+          'text': source['text'] ?? '',
+          'source': source['primary_source_raw'] ?? '',
+          'rarity': source['rarity'] ?? 'common',
+          'remaster_id': source['remaster_id']?[0] ?? '',
+          'legacy_id': source['legacy_id']?[0] ?? '',
+          'url': source['url'] ?? '',
+          'price': source['price_raw'] ?? '',
+          'usage': source['usage'] ?? '',
+          'bulk': source['bulk_raw'] ?? '',
+          'excluded': source['exclude_from_search'] ? 1 : 0,
+          'actions': actionsNumberToFont(source['actions_number'] ?? 9),
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
 
         final List<dynamic> traits = source['trait'] ?? [];
         for (var trait in traits) {
-          await txn.insert(
-            'traits',
-            {
-              'id': itemId,
-              'trait': trait.toString(),
-            },
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
+          await txn.insert('traits', {
+            'id': itemId,
+            'trait': trait.toString(),
+          }, conflictAlgorithm: ConflictAlgorithm.replace);
           uniqueTraitsEncountered.add(trait.toString());
+        }
+
+        final List<dynamic> keywords = extractKeywords(
+          source['text'] ?? "",
+        );
+        for (var key in keywords) {
+          await txn.insert('keywords', {
+            'id': itemId,
+            'keyword': key.toString(),
+          }, conflictAlgorithm: ConflictAlgorithm.replace);
         }
 
         final List<dynamic> children = source['item_child_id'] ?? [];
         for (var child in children) {
-          await txn.insert(
-            'children',
-            {
-              'parent_id': itemId,
-              'child_id': child.toString(),
-            },
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
+          await txn.insert('children', {
+            'parent_id': itemId,
+            'child_id': child.toString(),
+          }, conflictAlgorithm: ConflictAlgorithm.replace);
         }
-
-
-
-
       }
       for (var trait in uniqueTraitsEncountered) {
         final query = trait.toLowerCase();
-        final matches = traitHits.map((item) => item['_source']).where(
-          (item) => (item['name']).toLowerCase() == query,
-        ).toList();
-        
+        final matches = traitHits
+            .map((item) => item['_source'])
+            .where((item) => (item['name']).toLowerCase() == query)
+            .toList();
+
         final traitData = matches.firstWhere(
-          (item) => !item.containsKey('remaster_id') || item['remaster_id'] == null,
+          (item) =>
+              !item.containsKey('remaster_id') || item['remaster_id'] == null,
           orElse: () => matches.first,
         );
 
-        await txn.insert(
-            'trait_info',
-            {
-              'name':traitData['name'],
-              'markdown':traitData['markdown'],
-              'text':traitData['text'],
-              'url': traitData['url'],
-            },
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
+        await txn.insert('trait_info', {
+          'name': traitData['name'],
+          'markdown': traitData['markdown'],
+          'text': traitData['text'],
+          'url': traitData['url'],
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
     });
+  }
 
+  List<String> extractKeywords(String description) {
+    List<String> keywords = const [
+      "Counteract",
+      "Blinded",
+      "Concealed",
+      "Dazzled",
+      "Deafened",
+      "Invisible",
+      "Doomed",
+      "Dying",
+      "Unconscious",
+      "Wounded",
+      "Clumsy",
+      "Drained",
+      "Enfeebled",
+      "Stupefied",
+    ].where((word) => description.toLowerCase().contains(word.toLowerCase())).toList();
+    return keywords;
   }
 
   Future<List<Map<String, dynamic>>> getLocalItems() async {
@@ -282,33 +285,28 @@ class DatabaseService {
     return await db.query('items');
   }
 
-  Future<List<Map<String, dynamic>>> getChildren({
-    required String id,
-  }) async {
+  Future<List<Map<String, dynamic>>> getChildren({required String id}) async {
     final db = await database;
-    
+
     final ans = await db.query(
       'items',
-      columns: ['id','name','level'],
+      columns: ['id', 'name', 'level'],
       where: 'id IN (SELECT child_id FROM children WHERE parent_id = ?)',
       whereArgs: [id],
     );
-    
+
     return ans;
   }
 
-  Future<List<String>> getTraits({
-    required String id,
-  }) async {
+  Future<List<String>> getTraits({required String id}) async {
     final db = await database;
-    
+
     final ans = await db.query(
       'traits',
       columns: ['trait'],
       where: 'id = ?',
       whereArgs: [id],
     );
-    print(ans);
     return ans.map((item) => item['trait'].toString()).toList();
   }
 
@@ -323,6 +321,7 @@ class DatabaseService {
     bool hideExcluded = false,
     bool? isOuterItem,
     Map<String, List<String>>? traits,
+    List<String>? keywords,
   }) async {
     final db = await database;
     List<String> whereClauses = [];
@@ -361,24 +360,38 @@ class DatabaseService {
     if (legacy != null) {
       if (legacy) {
         whereClauses.add("(legacy_id IS NULL OR legacy_id = '')");
-      }
-      else {
+      } else {
         whereClauses.add("(remaster_id IS NULL OR remaster_id = '')");
       }
-     
     }
 
     if (hideExcluded) {
-      whereClauses.add('excluded = 0'); 
+      whereClauses.add('excluded = 0');
     }
 
     if (isOuterItem != null) {
-     if (isOuterItem) {
-      whereClauses.add('NOT EXISTS (SELECT 1 FROM children WHERE children.child_id = items.id)');
-    } else {
-      whereClauses.add('EXISTS (SELECT 1 FROM children WHERE children.child_id = items.id)');
+      if (isOuterItem) {
+        whereClauses.add(
+          'NOT EXISTS (SELECT 1 FROM children WHERE children.child_id = items.id)',
+        );
+      } else {
+        whereClauses.add(
+          'EXISTS (SELECT 1 FROM children WHERE children.child_id = items.id)',
+        );
+      }
     }
+
+    if (keywords != null && keywords.isNotEmpty) {
+      final placeholders = List.filled(keywords.length, '?').join(',');
+      whereClauses.add('''
+        id IN (
+          SELECT id FROM keywords 
+          WHERE LOWER(keyword) IN ($placeholders)
+        )
+      ''');
+      whereArgs.addAll(keywords.map((t) => t.toLowerCase()));
     }
+
 
     if (traits != null && traits.isNotEmpty) {
       if (traits.containsKey('include') && traits['include']!.isNotEmpty) {
@@ -406,22 +419,26 @@ class DatabaseService {
       }
     }
 
-    String? finalWhere = whereClauses.isNotEmpty ? whereClauses.join(' AND ') : null;
+    String? finalWhere = whereClauses.isNotEmpty
+        ? whereClauses.join(' AND ')
+        : null;
 
     final ans = await db.query(
-      'items', 
+      'items',
       where: finalWhere,
       whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
     );
-   
+
     final resultsWithChildren = await Future.wait(
       ans.map((entry) async {
-        
         final mutableEntry = Map<String, dynamic>.from(entry);
-        mutableEntry['children'] = await getChildren(id: mutableEntry['id'].toString());
-        mutableEntry['traits'] = await getTraits(id: mutableEntry['id'].toString());
+        mutableEntry['children'] = await getChildren(
+          id: mutableEntry['id'].toString(),
+        );
+        mutableEntry['traits'] = await getTraits(
+          id: mutableEntry['id'].toString(),
+        );
         return mutableEntry;
-        
       }),
     );
 
@@ -429,46 +446,67 @@ class DatabaseService {
   }
 
   bool isUniform(String parentName, String childName) {
-  final pName = parentName.trim().toLowerCase();
-  final cName = childName.trim().toLowerCase();
+    final pName = parentName.trim().toLowerCase();
+    final cName = childName.trim().toLowerCase();
 
-  if (cName == pName) {
-    return true;
-  }
-
-  final uniformKeywords = [
-    'minor', 'lesser', 'moderate', 'greater', 'major', 'supreme', 'true', 'standard',
-    'type i', 'type ii', 'type iii', 'type iv', 'type v',
-    'type 1', 'type 2', 'type 3', 'type 4', 'type 5',
-    'dose', 'dose or round', 'round', 'horn', 'keg',
-    'aged', 'experimental', 'refined', 'pure',
-    'power',
-  ];
-
-  bool hasKeyword = uniformKeywords.any((keyword) => cName.contains(keyword));
-  if (hasKeyword) {
-    return true;
-  }
-  return false;
-}
-
-}
-
- int? actionsNumberToFont(int anum) {
-    switch (anum) {
-      // who the hell labeled this shi
-      // like omg cant you do it normaly xD
-      case 6: // aaa
-        return 3;
-      case 4: //aa
-        return 2;
-      case 2: //a
-        return 1;
-      case 1: //r
-        return 5;
-      case 0: //f
-        return 4;
-      default:
-        return null;
+    if (cName == pName) {
+      return true;
     }
+
+    final uniformKeywords = [
+      'minor',
+      'lesser',
+      'moderate',
+      'greater',
+      'major',
+      'supreme',
+      'true',
+      'standard',
+      'type i',
+      'type ii',
+      'type iii',
+      'type iv',
+      'type v',
+      'type 1',
+      'type 2',
+      'type 3',
+      'type 4',
+      'type 5',
+      'dose',
+      'dose or round',
+      'round',
+      'horn',
+      'keg',
+      'aged',
+      'experimental',
+      'refined',
+      'pure',
+      'power',
+    ];
+
+    bool hasKeyword = uniformKeywords.any((keyword) => cName.contains(keyword));
+    if (hasKeyword) {
+      return true;
+    }
+    return false;
   }
+}
+
+int? actionsNumberToFont(int anum) {
+  switch (anum) {
+    // who the hell labeled this shi
+    // like omg cant you do it normaly xD
+    case 6: // aaa
+      return 3;
+    case 4: //aa
+      return 2;
+    case 2: //a
+      return 1;
+    case 1: //r
+      return 5;
+    case 0: //f
+      return 4;
+    default:
+      return null;
+  }
+}

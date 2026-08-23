@@ -2,9 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
-
 class FileService {
- final String fileName;
+  final String fileName;
   FileService({this.fileName = 'formula_books.json'});
 
   Future<File> _getFile() async {
@@ -32,6 +31,7 @@ class FileService {
   Future<void> save(List<Map<String, dynamic>> items) async {
     final file = await _getFile();
     file.writeAsString('');
+
     final jsonString = jsonEncode(items);
     await file.writeAsString(jsonString, flush: true);
   }
@@ -49,14 +49,16 @@ class FileService {
     required String uuid,
     required Map<String, dynamic> itemData,
   }) async {
+    itemData['date'] = DateTime.now().toIso8601String();
+
     final items = await load();
     final index = items.indexWhere((element) => element['uuid'] == uuid);
-    print(items.length);
+    //print(items.length);
     if (index != -1) {
       items[index] = itemData;
     } else {
       items.add(itemData);
-      print("add");
+      //print("add");
     }
 
     await save(items);

@@ -110,17 +110,19 @@ class FormulaBook {
     return formulae.any((item) => item.startsWith(id));
   }
 
-  void setFreeStatus(String category, String id) {
+  void setFree(String category, String id) {
     final maxCount = (category == "Alchemical Crafting") ? 4 : 2;
-    final categoryList = free[category];
-    if (categoryList == null) free[category] = [];
-    if (categoryList != null && categoryList.length < maxCount) {
-      if (categoryList.contains(id)) {
-        free[category]?.remove(id);
-      } else {
+    if (free[category] == null) free[category] = [];
+    if (free[category] != null && free[category]!.length < maxCount) {
+      if (!free[category]!.contains(id)) {
         free[category]?.add(id);
       }
     }
+  }
+
+  void removeFree(String id) {
+    print("removing $id");
+    free.forEach((category, values) => values.remove(id));
   }
 
   Map<String, dynamic> map() {
@@ -147,7 +149,9 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
   bool _isLoading = false;
   final FilterCriteria _criteria = FilterCriteria();
   FormulaBook _formulaBook = FormulaBook();
+  List<Map<String, dynamic>> _cachedItems = [];
   double _totalPrice = 0;
+  double _freePrice = 0;
 
   @override
   void initState() {
@@ -155,6 +159,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
 
     _refreshLocalItems();
     _updatePrice();
+    _syncCachedItems();
   }
 
   Future<void> _refreshLocalItems() async {
@@ -162,6 +167,18 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     final fetchedTraits = await _dbService.getAllTraits();
     setState(() {
       _traits = fetchedTraits;
+    });
+  }
+
+  void _syncCachedItems() async {
+    final futures = _formulaBook.formulae.map((id) async {
+      final results = await _dbService.searchItems(id: id);
+      return results.isNotEmpty ? results.first : <String, dynamic>{};
+    });
+
+    final loaded = await Future.wait(futures);
+    setState(() {
+      _cachedItems = loaded;
     });
   }
 
@@ -192,11 +209,20 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     final double calcPrice = (await Future.wait(
       _formulaBook.formulae.map((entry) async {
         final item = await _dbService.searchItems(id: entry);
-        return (priceTags[item[0]['level']]);
+        return _formulaBook.isFree(entry) ? 0 : (priceTags[item[0]['level']]);
       }),
     )).fold(0.0, (a, b) => a + b);
+
+    final double calcFreePrice = (await Future.wait(
+      _formulaBook.formulae.map((entry) async {
+        final item = await _dbService.searchItems(id: entry);
+        return _formulaBook.isFree(entry) ? (priceTags[item[0]['level']]) : 0;
+      }),
+    )).fold(0.0, (a, b) => a + b);
+
     setState(() {
       _totalPrice = calcPrice;
+      _freePrice = calcFreePrice;
     });
   }
 
@@ -243,7 +269,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
       legacy: false,
       isOuterItem: true,
       traits: criteria.selectedTraits.isEmpty ? null : traitTranslation,
-      // keywords: criteria.selectedKeywords
+      keywords: criteria.selectedKeywords.toList(),
       //summary:,
     );
     setState(() {
@@ -279,6 +305,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
         itemData: formulaBook.map(),
         uuid: formulaBook.uuid,
       );
+      _syncCachedItems();
     }
     setState(() {
       _formulaBook = formulaBook;
@@ -326,6 +353,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
                       child: FormulaBookDetails(
                         formulaBook: _formulaBook,
                         onChanged: _handleBookChange,
+                        cachedItems: _cachedItems,
                       ),
                     ),
                   ],
@@ -373,6 +401,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
               child: FormulaBookDetails(
                 formulaBook: _formulaBook,
                 onChanged: _handleBookChange,
+                cachedItems: _cachedItems,
               ),
             ),
           )
@@ -457,7 +486,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
                   ),
                 ),
                 onPressed: () => {
-                  print(item['traits']),
+                  //print(item['traits']),
                   if (!pureCollection || subentries.isEmpty)
                     {
                       _formulaBook.change(item["id"]),
@@ -563,7 +592,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
                   alignment: AlignmentDirectional.centerStart,
                   child: MarkdownBody(
                     selectable: true,
-                     onTapLink:_handleLinkClick,
+                    onTapLink: _handleLinkClick,
                     styleSheet: MarkdownStyleSheet(
                       code: const TextStyle(
                         fontFamily: 'PF2e Icons',
@@ -584,7 +613,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
             MarkdownBody(
               selectable: true,
               data: descriptions[0].toString(),
-              onTapLink:_handleLinkClick,
+              onTapLink: _handleLinkClick,
               styleSheet: MarkdownStyleSheet(
                 code: const TextStyle(fontFamily: 'PF2e Icons', fontSize: 25.0),
               ),
@@ -703,11 +732,11 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
                   if (!isUniform)
                     IconButton(
                       onPressed: () {
-                        print(subItem['id']);
+                        //print(subItem['id']);
                         _formulaBook.change(subItem["id"]);
                         setState(() {});
                         _handleBookChange(_formulaBook, true);
-                        print(_formulaBook.formulae);
+                        // print(_formulaBook.formulae);
                       },
                       icon: Icon(
                         _formulaBook.contains(subItem['id'])
@@ -762,7 +791,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
                 MarkdownBody(
                   selectable: true,
                   data: description,
-                  onTapLink:_handleLinkClick,
+                  onTapLink: _handleLinkClick,
                   styleSheet: MarkdownStyleSheet(
                     code: const TextStyle(
                       fontFamily: 'PF2e Icons',
@@ -828,6 +857,10 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     final int sp = ((_totalPrice - gp) * 10).round();
     final price = (gp > 0 ? "$gp gp" : "") + (sp > 0 ? "$sp sp" : "");
 
+    final int fgp = _freePrice.floor();
+    final int fsp = ((_freePrice - fgp) * 10).round();
+    final fprice = (fgp > 0 ? "$fgp gp" : "") + (fsp > 0 ? "$fsp sp" : "");
+
     return Column(
       children: [
         Padding(
@@ -843,7 +876,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
             child: Row(
               children: [
                 Text(
-                  "${_formulaBook.name} $price",
+                  "${_formulaBook.name} $price ${fprice.isNotEmpty ? "+ $fprice" : ""}",
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
