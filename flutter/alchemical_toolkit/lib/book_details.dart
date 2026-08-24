@@ -40,7 +40,7 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
     super.dispose();
   }
 
-  Future<void> _updateBook(bool shouldSave)  async {
+  Future<void> _updateBook(bool shouldSave) async {
     print("updated details ${widget.formulaBook}");
     await widget.onChanged(widget.formulaBook, shouldSave);
     _nameController.text = widget.formulaBook.name;
@@ -88,7 +88,7 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                         onChanged: (val) {
                           if (val != null) {
                             widget.formulaBook.setLevel(val);
-                             _updateBook(true);
+                            _updateBook(true);
                           }
                         },
                       ),
@@ -762,6 +762,7 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                                       visualDensity: VisualDensity.compact,
                                     ),
                                     onPressed: () async {
+                                      await _fService.copy(selectedHighlight);
                                       setDialogState(() {
                                         selectedHighlight = null;
                                         booksFuture = _fService.load();
@@ -901,9 +902,7 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                         icon: const Icon(Icons.add),
                         label: const Text('New'),
                         onPressed: () async {
-                          widget.formulaBook.reset();
-                          await _updateBook(true);
-                          
+                          await _fService.createNew();
                           setDialogState(() {
                             selectedHighlight = null;
                             booksFuture = _fService.load();

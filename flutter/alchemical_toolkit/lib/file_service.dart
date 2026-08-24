@@ -1,6 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:alchemical_toolkit/layout.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
+
+var uuidGen = Uuid();
 
 class FileService {
   final String fileName;
@@ -26,6 +30,16 @@ class FileService {
       print('Error reading JSON: $e');
       return [];
     }
+  }
+
+  Future<void> createNew() async {
+    final empty = FormulaBook().map();
+    await saveOrUpdate(uuid: empty['uuid'], itemData: empty);
+  }
+
+  Future<void> copy(Map<String, dynamic> book) async {
+    book['uuid'] = uuidGen.v1();
+    await saveOrUpdate(uuid: book['uuid'], itemData: book);
   }
 
   Future<void> save(List<Map<String, dynamic>> items) async {

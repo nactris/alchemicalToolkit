@@ -331,7 +331,6 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isMobile = screenWidth < 800;
     //return ThemeColorGrid();
@@ -866,9 +865,9 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     final int sp = ((_totalPrice - gp) * 10).round();
     final price = (gp > 0 ? "$gp gp" : "") + (sp > 0 ? "$sp sp" : "");
 
-    final int fgp = _freePrice.floor();
-    final int fsp = ((_freePrice - fgp) * 10).round();
-    final fprice = (fgp > 0 ? "$fgp gp" : "") + (fsp > 0 ? "$fsp sp" : "");
+    //final int fgp = _freePrice.floor();
+    //final int fsp = ((_freePrice - fgp) * 10).round();
+    //final fprice = (fgp > 0 ? "$fgp gp" : "") + (fsp > 0 ? "$fsp sp" : "");
 
     return Column(
       children: [
