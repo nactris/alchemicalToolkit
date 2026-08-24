@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:alchemical_toolkit/layout.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:file_picker/file_picker.dart';
 
 var uuidGen = Uuid();
 
@@ -30,6 +31,30 @@ class FileService {
       print('Error reading JSON: $e');
       return [];
     }
+  }
+
+  Future<void> createFromFile() async {
+    final result = await FilePicker.pickFile(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
+
+    if (result != null && result.path != null) {
+      final contents = await File(result.path!).readAsString();
+      final jsonList = jsonDecode(contents);
+      final book = Map<String, dynamic>.from(jsonList);
+      await saveOrUpdate(uuid: book['uuid'], itemData: book);
+    }
+  }
+
+  Future<void> exportAsJson(Map<String, dynamic> book) async {
+    await FilePicker.saveFile(
+      dialogTitle: 'Select save location',
+      fileName: "${book['name'] ?? "Unnamed Book"}.json",
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      bytes: utf8.encode(jsonEncode(book)),
+    );
   }
 
   Future<void> createNew() async {

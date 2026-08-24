@@ -648,7 +648,6 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
             }
 
             Widget buildBookList(List<dynamic> books) {
-              print("reloading boojks");
               return ListView.builder(
                 shrinkWrap: true,
                 itemCount: books.length,
@@ -899,6 +898,27 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                         ),
+                        icon: const Icon(Icons.file_open),
+                        label: const Text('Import'),
+                        onPressed: () async {
+                          await _fService.createFromFile();
+                          setDialogState(() {
+                            selectedHighlight = null;
+                            booksFuture = _fService.load();
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: colorScheme.inversePrimary,
+                          foregroundColor: colorScheme.onSurface,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
                         icon: const Icon(Icons.add),
                         label: const Text('New'),
                         onPressed: () async {
@@ -971,14 +991,12 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
             borderRadius: BorderRadius.circular(8),
             side: BorderSide(color: colorScheme.inversePrimary, width: 2),
           ),
-          clipBehavior:
-              Clip.antiAlias, // Clips title background to dialog border radius
+          clipBehavior: Clip.antiAlias,
           child: SizedBox(
             width: 320,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Title Header with inversePrimary background
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -994,7 +1012,7 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // Grid of Outlined Buttons 1-20
+
                 Padding(
                   padding: const EdgeInsets.all(12.0),
                   child: GridView.builder(

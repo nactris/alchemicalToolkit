@@ -7,6 +7,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:uuid/uuid.dart';
 import 'book_details.dart';
 import 'dart:io';
+import 'package:url_launcher/url_launcher.dart';
 
 var uuidGen = Uuid();
 
@@ -152,6 +153,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
   List<Map<String, dynamic>> _cachedItems = [];
   double _totalPrice = 0;
   double _freePrice = 0;
+  bool _isDatabaseLoaded = false;
 
   @override
   void initState() {
@@ -170,6 +172,10 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
   }
 
   Future<void> _loadInitBook() async {
+    final loaded = await _dbService.hasItems();
+    setState(() {
+      _isDatabaseLoaded = loaded;
+    });
     final book = await _fService.getFirstOrNothing();
     if (book != null) _formulaBook.update(book);
     _syncCachedItems();
@@ -247,11 +253,13 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
 
       await _refreshLocalItems();
     }
-
+    final loaded = await _dbService.hasItems();
     setState(() {
       _isLoading = false;
+      _isDatabaseLoaded = loaded;
     });
     print("Update finished!");
+    _syncCachedItems();
   }
 
   void _handleFilterChange(FilterCriteria criteria) async {
@@ -322,10 +330,10 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     await _syncCachedItems();
   }
 
-  void _handleLinkClick(String text, String? href, String title) {
+  void _handleLinkClick(String text, String? href, String title) async {
     if (href != null) {
-      //launchUrl(Uri.parse(href));
-      print("link clik! $text https://2e.aonprd.com$href ");
+      await launchUrl(Uri.parse('https://2e.aonprd.com$href'));
+    //  print("link clik! https://2e.aonprd.com$href");
     }
   }
 
@@ -426,7 +434,8 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
               ? Padding(
                   padding: EdgeInsets.all(4.0),
                   child: Text(
-                    'No items found.',
+                    'No items found. ${!_isDatabaseLoaded ? '\nMake sure to download the item database' : ''}',
+                    textAlign: TextAlign.center,
                     style: TextStyle(color: colorScheme.onSurfaceVariant),
                   ),
                 )
@@ -832,27 +841,63 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Left Action
-          IconButton(
-            onPressed: _updateDatabase,
-            icon: _isLoading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.cloud_download),
+          Badge(
+            isLabelVisible: !_isDatabaseLoaded && !_isLoading,
+            //backgroundColor: colorScheme.error,
+            label: Icon(
+              Icons.priority_high,
+              size: 10,
+              color: colorScheme.onError,
+            ),
+            child: IconButton(
+              onPressed: _updateDatabase,
+              icon: _isLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.cloud_download),
+            ),
           ),
-
-          IconButton(
-            icon: Icon(Icons.print, color: colorScheme.onSurface),
-            onPressed: () async {
-              print(
-                await Future.wait([
-                  _dbService.getChildren(id: "equipment-1311"),
-                ]),
-              );
+          const Spacer(),
+          PopupMenuButton<String>(
+            icon: Icon(Icons.share, color: colorScheme.onSurface),
+            onSelected: (String choice) async {
+              final data = _formulaBook.map();
+              switch (choice) {
+                case 'json':
+                  await _fService.exportAsJson(data);
+                  break;
+                case 'markdown':
+                  //await _fService.exportAsMarkdown(data);
+                  break;
+                case 'text':
+                  //await _fService.exportAsText(data);
+                  break;
+                case 'links':
+                  //await _fService.exportAsLinks(data);
+                  break;
+              }
             },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'json',
+                child: Text('Share as JSON'),
+              ),
+              const PopupMenuItem<String>(
+                value: 'markdown',
+                child: Text('Share as Markdown'),
+              ),
+              const PopupMenuItem<String>(
+                value: 'text',
+                child: Text('Share as Text'),
+              ),
+              const PopupMenuItem<String>(
+                value: 'links',
+                child: Text('Share as Links'),
+              ),
+            ],
           ),
         ],
       ),

@@ -6,7 +6,6 @@ import 'package:sqflite/sqflite.dart';
 
 class DatabaseService {
   static Database? _db;
-
   Future<Database> get database async {
     if (_db != null) return _db!;
     _db = await _initDatabase();
@@ -16,7 +15,6 @@ class DatabaseService {
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'aon_items.db');
-    //await deleteDatabase(path); // -debug
     return await openDatabase(
       path,
       version: 1,
@@ -69,7 +67,6 @@ class DatabaseService {
           )
         ''');
 
-
         await db.execute('''
             CREATE TABLE keywords (
             id TEXT ,
@@ -93,6 +90,13 @@ class DatabaseService {
     );
     print("fetched ${results.length} traits");
     return results.map((row) => row['name'].toString()).toList();
+  }
+
+  Future<bool> hasItems() async {
+    final db = await database;
+    final ans =await db.rawQuery('SELECT EXISTS(SELECT 1 FROM items);');
+    return Sqflite.firstIntValue(ans) == 1;
+
   }
 
   Future<List<Map<String, dynamic>>> fetchAlchemicalItems() async {
@@ -219,9 +223,7 @@ class DatabaseService {
           uniqueTraitsEncountered.add(trait.toString());
         }
 
-        final List<dynamic> keywords = extractKeywords(
-          source['text'] ?? "",
-        );
+        final List<dynamic> keywords = extractKeywords(source['text'] ?? "");
         for (var key in keywords) {
           await txn.insert('keywords', {
             'id': itemId,
@@ -261,22 +263,27 @@ class DatabaseService {
   }
 
   List<String> extractKeywords(String description) {
-    List<String> keywords = const [
-      "Counteract",
-      "Blinded",
-      "Concealed",
-      "Dazzled",
-      "Deafened",
-      "Invisible",
-      "Doomed",
-      "Dying",
-      "Unconscious",
-      "Wounded",
-      "Clumsy",
-      "Drained",
-      "Enfeebled",
-      "Stupefied",
-    ].where((word) => description.toLowerCase().contains(word.toLowerCase())).toList();
+    List<String> keywords =
+        const [
+              "Counteract",
+              "Blinded",
+              "Concealed",
+              "Dazzled",
+              "Deafened",
+              "Invisible",
+              "Doomed",
+              "Dying",
+              "Unconscious",
+              "Wounded",
+              "Clumsy",
+              "Drained",
+              "Enfeebled",
+              "Stupefied",
+            ]
+            .where(
+              (word) => description.toLowerCase().contains(word.toLowerCase()),
+            )
+            .toList();
     return keywords;
   }
 
@@ -392,7 +399,6 @@ class DatabaseService {
       whereArgs.addAll(keywords.map((t) => t.toLowerCase()));
     }
 
-
     if (traits != null && traits.isNotEmpty) {
       if (traits.containsKey('include') && traits['include']!.isNotEmpty) {
         final includeTraits = traits['include']!;
@@ -490,6 +496,7 @@ class DatabaseService {
     }
     return false;
   }
+
 }
 
 int? actionsNumberToFont(int anum) {
