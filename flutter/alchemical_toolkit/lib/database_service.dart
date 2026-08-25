@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -88,7 +87,7 @@ class DatabaseService {
       distinct: true,
       columns: ['name'],
     );
-    print("fetched ${results.length} traits");
+    //print("fetched ${results.length} traits");
     return results.map((row) => row['name'].toString()).toList();
   }
 
@@ -131,11 +130,11 @@ class DatabaseService {
         final List hits = data['hits']['hits'] ?? [];
         return hits.cast<Map<String, dynamic>>();
       } else {
-        print('AoN item search failed with status: ${response.statusCode}');
+        //print('AoN item search failed with status: ${response.statusCode}');
         return [];
       }
     } catch (e) {
-      print('Network error fetching AoN item data: $e');
+      //print('Network error fetching AoN item data: $e');
       return [];
     }
   }
@@ -172,11 +171,11 @@ class DatabaseService {
         final List hits = data['hits']['hits'] ?? [];
         return hits.cast<Map<String, dynamic>>();
       } else {
-        print('AoN trait search failed with status: ${response.statusCode}');
+       // print('AoN trait search failed with status: ${response.statusCode}');
         return [];
       }
     } catch (e) {
-      print('Network error fetching AoN trait data: $e');
+      //print('Network error fetching AoN trait data: $e');
       return [];
     }
   }
@@ -496,19 +495,6 @@ class DatabaseService {
     return false;
   }
 
-  void test() async {
-    final db = await database;
-    final ans = await db.rawQuery('SELECT DISTINCT subcategory FROM items;');
-    final tot = ans
-        .expand((e) => e.values)
-        .map((e) {
-          final entry = e.toString().replaceFirst("Alchemical ", "");
-          return "\"$e\":\"$entry\"";
-
-        })
-        .join(", ");
-    print(tot);
-  }
 }
 
 int? actionsNumberToFont(int anum) {

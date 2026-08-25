@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'layout.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite/sqflite.dart';
 import 'dart:io';
-import 'theme_color_grid.dart';
 Future main() async {
   if (Platform.isWindows || Platform.isLinux) {
     sqfliteFfiInit();

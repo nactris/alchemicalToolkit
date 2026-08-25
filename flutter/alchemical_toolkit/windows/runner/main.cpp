@@ -23,11 +23,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
       GetCommandLineArguments();
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
-
-  FlutterWindow window(project);
-  Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.Create(L"alchemical_toolkit", origin, size)) {
+
+  int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+  int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+  int originX = (screenWidth - size.width) / 2;
+  int originY = (screenHeight - size.height) / 2;
+  FlutterWindow window(project);
+  Win32Window::Point origin(originX, originY);
+
+
+  if (!window.Create(L"Alchemical Toolkit", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

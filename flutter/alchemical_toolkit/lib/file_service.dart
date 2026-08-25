@@ -30,7 +30,7 @@ class FileService {
       final List<dynamic> jsonList = jsonDecode(contents);
       return List<Map<String, dynamic>>.from(jsonList);
     } catch (e) {
-      print('Error reading JSON: $e');
+      //print('Error reading JSON: $e');
       return [];
     }
   }

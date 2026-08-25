@@ -89,11 +89,11 @@ class FormulaBook {
     );
   }
 
-  void setLevel(level) {
+  void setLevel( int level) {
     if (level <= 20 && level >= 0) this.level = level;
   }
 
-  void setName(name) {
+  void setName(String name) {
     this.name = name;
   }
 
@@ -124,7 +124,6 @@ class FormulaBook {
   }
 
   void removeFree(String id) {
-    print("removing $id");
     free.forEach((category, values) => values.remove(id));
   }
 
@@ -245,13 +244,13 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     });
 
     final itemHits = await _dbService.fetchAlchemicalItems();
-    print("Downloaded ${itemHits.length} items from AoN!");
+    //print("Downloaded ${itemHits.length} items from AoN!");
     final traitHits = await _dbService.fetchTraitInfo();
-    print("Downloaded ${traitHits.length} items from AoN!");
+    //print("Downloaded ${traitHits.length} items from AoN!");
 
     if (itemHits.isNotEmpty && traitHits.isNotEmpty) {
       await _dbService.populate(itemHits, traitHits);
-      print("Done populating database!");
+      //print("Done populating database!");
 
       await _refreshLocalItems();
     }
@@ -260,7 +259,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
       _isLoading = false;
       _isDatabaseLoaded = loaded;
     });
-    print("Update finished!");
+    //print("Update finished!");
     _syncCachedItems();
   }
 
@@ -310,7 +309,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
 
         return _criteria.ascending ? result : -result;
       });
-      print("found ${items.length} hits");
+      //print("found ${items.length} hits");
     });
   }
 
@@ -685,6 +684,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     );
   }
 
+
   Widget _buildTraitPlate(String trait) {
     final colorScheme = Theme.of(context).colorScheme;
     //TODO remove that?
@@ -852,7 +852,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
               color: colorScheme.onError,
             ),
             child: IconButton(
-              onPressed: _dbService.test,
+              onPressed: _updateDatabase,
               icon: _isLoading
                   ? const SizedBox(
                       width: 16,

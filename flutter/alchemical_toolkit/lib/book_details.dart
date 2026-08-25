@@ -41,7 +41,7 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
   }
 
   Future<void> _updateBook(bool shouldSave) async {
-    print("updated details ${widget.formulaBook}");
+    //print("updated details ${widget.formulaBook}");
     await widget.onChanged(widget.formulaBook, shouldSave);
     _nameController.text = widget.formulaBook.name;
   }
