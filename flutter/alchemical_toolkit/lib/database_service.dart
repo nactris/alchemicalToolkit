@@ -171,7 +171,7 @@ class DatabaseService {
         final List hits = data['hits']['hits'] ?? [];
         return hits.cast<Map<String, dynamic>>();
       } else {
-       // print('AoN trait search failed with status: ${response.statusCode}');
+        // print('AoN trait search failed with status: ${response.statusCode}');
         return [];
       }
     } catch (e) {
@@ -392,6 +392,8 @@ class DatabaseService {
         id IN (
           SELECT id FROM keywords 
           WHERE LOWER(keyword) IN ($placeholders)
+          GROUP BY id
+          HAVING COUNT(DISTINCT LOWER(keyword)) = ${keywords.length}
         )
       ''');
       whereArgs.addAll(keywords.map((t) => t.toLowerCase()));
@@ -494,7 +496,6 @@ class DatabaseService {
     }
     return false;
   }
-
 }
 
 int? actionsNumberToFont(int anum) {
