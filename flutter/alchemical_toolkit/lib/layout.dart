@@ -333,7 +333,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
   void _handleLinkClick(String text, String? href, String title) async {
     if (href != null) {
       await launchUrl(Uri.parse('https://2e.aonprd.com$href'));
-    //  print("link clik! https://2e.aonprd.com$href");
+      //  print("link clik! https://2e.aonprd.com$href");
     }
   }
 
@@ -870,13 +870,38 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
                   await _fService.exportAsJson(data);
                   break;
                 case 'markdown':
-                  //await _fService.exportAsMarkdown(data);
-                  break;
-                case 'text':
-                  //await _fService.exportAsText(data);
+                  await _fService.exportAsText(
+                    book: data,
+                    ext: ".md",
+                    parseFunction: (data) {
+                      return data.map(
+                        (item) =>
+                            "[${item['name']} Level ${item['level']}](https://2e.aonprd.com/${item['url']})",
+                      );
+                    },
+                  );
                   break;
                 case 'links':
-                  //await _fService.exportAsLinks(data);
+                  await _fService.exportAsText(
+                    book: data,
+                    ext: ".txt",
+                    parseFunction: (data) {
+                      return data.map(
+                        (item) => "https://2e.aonprd.com/${item['url']}",
+                      );
+                    },
+                  );
+                  break;
+                case 'text':
+                  await _fService.exportAsText(
+                    book: data,
+                    ext: ".txt",
+                    parseFunction: (data) {
+                      return data.map(
+                        (item) => "${item['name']} Level ${item['level']}",
+                      );
+                    },
+                  );
                   break;
               }
             },

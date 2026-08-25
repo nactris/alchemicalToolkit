@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:alchemical_toolkit/database_service.dart';
 import 'package:alchemical_toolkit/layout.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -9,6 +10,7 @@ var uuidGen = Uuid();
 
 class FileService {
   final String fileName;
+  final _dbService = DatabaseService();
   FileService({this.fileName = 'formula_books.json'});
 
   Future<File> _getFile() async {
@@ -54,6 +56,34 @@ class FileService {
       type: FileType.custom,
       allowedExtensions: ['json'],
       bytes: utf8.encode(jsonEncode(book)),
+    );
+  }
+
+  Future<void> exportAsText({
+    required Map<String, dynamic> book,
+    required Function(List data) parseFunction,
+    required String ext,
+  }) async {
+    final items = await Future.wait(
+      List<Future<Map<String, dynamic>>>.from(
+        book['formulae'].map((item) async {
+          final data = Map<String, dynamic>.from(
+            (await _dbService.searchItems(id: item)).first,
+          );
+          return data;
+        }),
+      ),
+    );
+    items.sort((a, b) => a['level'].compareTo(b['level']));
+
+    final output = parseFunction(items).toList().join('\n');
+
+    await FilePicker.saveFile(
+      dialogTitle: 'Select save location',
+      fileName: "${book['name'] ?? "Unnamed Book"}$ext",
+      type: FileType.custom,
+      allowedExtensions: [ext],
+      bytes: utf8.encode(output),
     );
   }
 
