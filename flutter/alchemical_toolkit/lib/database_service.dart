@@ -24,7 +24,7 @@ class DatabaseService {
             id TEXT PRIMARY KEY,
             name TEXT,
             level SMALLINT,
-            item_subcategory TEXT,
+            subcategory TEXT,
             primary_source TEXT,
             markdown TEXT,
             text TEXT,
@@ -94,9 +94,8 @@ class DatabaseService {
 
   Future<bool> hasItems() async {
     final db = await database;
-    final ans =await db.rawQuery('SELECT EXISTS(SELECT 1 FROM items);');
+    final ans = await db.rawQuery('SELECT EXISTS(SELECT 1 FROM items);');
     return Sqflite.firstIntValue(ans) == 1;
-
   }
 
   Future<List<Map<String, dynamic>>> fetchAlchemicalItems() async {
@@ -198,7 +197,7 @@ class DatabaseService {
           'id': source['id'] ?? 'invalidId',
           'name': source['name'] ?? 'invalidName',
           'level': source['level'] ?? 0,
-          'item_subcategory': source['item_subcategory'] ?? 'invalid',
+          'subcategory': source['item_subcategory'] ?? 'invalid',
           'primary_source': source['primary_source'] ?? 'invalid',
           'markdown': source['markdown'] ?? '',
           'text': source['text'] ?? '',
@@ -497,6 +496,19 @@ class DatabaseService {
     return false;
   }
 
+  void test() async {
+    final db = await database;
+    final ans = await db.rawQuery('SELECT DISTINCT subcategory FROM items;');
+    final tot = ans
+        .expand((e) => e.values)
+        .map((e) {
+          final entry = e.toString().replaceFirst("Alchemical ", "");
+          return "\"$e\":\"$entry\"";
+
+        })
+        .join(", ");
+    print(tot);
+  }
 }
 
 int? actionsNumberToFont(int anum) {

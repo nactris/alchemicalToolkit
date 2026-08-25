@@ -26,18 +26,19 @@ class FilterCriteria {
   bool ascending;
   Map<String, bool> selectedTraits;
   Set<String> selectedKeywords;
-  //String? category
+  String subcategory;
   int minLevel;
   int maxLevel;
 
   FilterCriteria({
     this.name,
     this.sortBy = 'level',
+    this.subcategory = '',
     this.ascending = true,
     this.knownOnly = false,
     Map<String, bool>? selectedTraits,
     Set<String>? selectedKeywords,
-    //this.category = '',
+
     this.minLevel = 0,
     this.maxLevel = 20,
   }) : selectedTraits = selectedTraits ?? {},
@@ -49,6 +50,7 @@ class FilterCriteria {
     selectedTraits.clear();
     selectedKeywords.clear();
     minLevel = 0;
+    subcategory = '';
     maxLevel = 20;
   }
 }
@@ -275,7 +277,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     };
     final items = await _dbService.searchItems(
       name: criteria.name,
-      //subcategory: criteria.subcategory,
+      subcategory: criteria.subcategory.isNotEmpty ? criteria.subcategory : null,
       minLevel: criteria.minLevel,
       maxLevel: criteria.maxLevel,
       hideExcluded: true,
@@ -850,7 +852,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
               color: colorScheme.onError,
             ),
             child: IconButton(
-              onPressed: _updateDatabase,
+              onPressed: _dbService.test,
               icon: _isLoading
                   ? const SizedBox(
                       width: 16,

@@ -42,11 +42,9 @@ class _FilterPanelState extends State<FilterPanel> {
   final SearchController _keywordController = SearchController();
   final SearchController _traitController = SearchController();
 
-
   @override
   void initState() {
     super.initState();
-   
   }
 
   @override
@@ -107,6 +105,9 @@ class _FilterPanelState extends State<FilterPanel> {
 
                   _buildClearButton(),
                   const SizedBox(height: 16),
+
+                  _buildSubcatergorySelect(),
+                  const SizedBox(height: 12),
 
                   _buildTraitsSection(),
                   const SizedBox(height: 12),
@@ -187,6 +188,81 @@ class _FilterPanelState extends State<FilterPanel> {
           borderRadius: BorderRadius.circular(6),
         ),
       ),
+    );
+  }
+
+  Widget _buildSubcatergorySelect() {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final options = {
+      '': '',
+      "Alchemical Food": "Food",
+      "Alchemical Elixirs": "Elixirs",
+      "Alchemical Poisons": "Poisons",
+      "Alchemical Ammunition": "Ammunition",
+      "Alchemical Bombs": "Bombs",
+      "Alchemical Tools": "Tools",
+      "Drugs": "Drugs",
+      "Alchemical Plants": "Plants",
+      "Bottled Monstrosities": "Bottled Monstrosities",
+      "Alchemical Other": "Other",
+    };
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return PopupMenuButton<String>(
+          position: PopupMenuPosition.under,
+          color: colorScheme.onSecondaryFixed,
+          constraints: BoxConstraints(
+            minWidth: constraints.maxWidth,
+            maxWidth: constraints.maxWidth,
+          ),
+          initialValue: widget.criteria.subcategory,
+          onSelected: (String selected) {
+            if (selected != widget.criteria.subcategory) {
+              widget.criteria.subcategory = selected;
+              _updateCriteria();
+            }
+          },
+          itemBuilder: (BuildContext context) {
+            return options.entries.map((entry) {
+              return PopupMenuItem<String>(
+                value: entry.key,
+                child: Text(
+                  entry.value,
+                  style: TextStyle(fontSize: 12, color: colorScheme.onSurface),
+                ),
+              );
+            }).toList();
+          },
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              border: Border.all(color: colorScheme.inversePrimary, width: 2),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.search,
+                  size: 16,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  (options[widget.criteria.subcategory] ?? '').isNotEmpty ? options[widget.criteria.subcategory] ?? "Category" : "Category",
+                  style: TextStyle(fontSize: 12, color: colorScheme.onSurface),
+                ),
+                const Spacer(),
+                Icon(
+                  Icons.arrow_drop_down,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -625,7 +701,7 @@ class _FilterPanelState extends State<FilterPanel> {
     );
   }
 
-    Widget _buildLevelSelect({
+  Widget _buildLevelSelect({
     required String boxLabel,
     int? min,
     int? max,
@@ -639,7 +715,10 @@ class _FilterPanelState extends State<FilterPanel> {
       decoration: InputDecoration(
         isCollapsed: true,
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 16,
+        ),
         floatingLabelAlignment: FloatingLabelAlignment.start,
         floatingLabelStyle: TextStyle(
           fontSize: 14,
@@ -687,7 +766,7 @@ class _FilterPanelState extends State<FilterPanel> {
                 items:
                     List.generate(
                       (max ?? 20) - (min ?? 0) + 1,
-                      (index) => (min??0) + index,
+                      (index) => (min ?? 0) + index,
                     ).map((number) {
                       return DropdownMenuItem<int>(
                         value: number,
