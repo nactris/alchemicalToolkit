@@ -401,27 +401,41 @@ class DatabaseService {
 
     if (traits != null && traits.isNotEmpty) {
       if (traits.containsKey('include') && traits['include']!.isNotEmpty) {
-        final includeTraits = traits['include']!;
+        // 1. Clean data: remove duplicates and lowercase in Dart
+        final includeTraits = traits['include']!
+            .map((t) => t.toLowerCase())
+            .toSet()
+            .toList();
+
         final placeholders = List.filled(includeTraits.length, '?').join(',');
+
         whereClauses.add('''
-          id IN (
-            SELECT id FROM traits 
-            WHERE LOWER(trait) IN ($placeholders)
-          )
-        ''');
-        whereArgs.addAll(includeTraits.map((t) => t.toLowerCase()));
+      id IN (
+        SELECT id FROM traits 
+        WHERE LOWER(trait) IN ($placeholders)
+        GROUP BY id
+        HAVING COUNT(DISTINCT LOWER(trait)) = ${includeTraits.length}
+      )
+    ''');
+        whereArgs.addAll(includeTraits);
       }
 
       if (traits.containsKey('exclude') && traits['exclude']!.isNotEmpty) {
-        final excludeTraits = traits['exclude']!;
+        // Clean data for excludes as well
+        final excludeTraits = traits['exclude']!
+            .map((t) => t.toLowerCase())
+            .toSet()
+            .toList();
+
         final placeholders = List.filled(excludeTraits.length, '?').join(',');
+
         whereClauses.add('''
-          id NOT IN (
-            SELECT id FROM traits 
-            WHERE LOWER(trait) IN ($placeholders)
-          )
-        ''');
-        whereArgs.addAll(excludeTraits.map((t) => t.toLowerCase()));
+      id NOT IN (
+        SELECT id FROM traits 
+        WHERE LOWER(trait) IN ($placeholders)
+      )
+    ''');
+        whereArgs.addAll(excludeTraits);
       }
     }
 

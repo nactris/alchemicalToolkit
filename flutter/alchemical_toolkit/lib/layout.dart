@@ -89,7 +89,7 @@ class FormulaBook {
     );
   }
 
-  void setLevel( int level) {
+  void setLevel(int level) {
     if (level <= 20 && level >= 0) this.level = level;
   }
 
@@ -276,7 +276,9 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     };
     final items = await _dbService.searchItems(
       name: criteria.name,
-      subcategory: criteria.subcategory.isNotEmpty ? criteria.subcategory : null,
+      subcategory: criteria.subcategory.isNotEmpty
+          ? criteria.subcategory
+          : null,
       minLevel: criteria.minLevel,
       maxLevel: criteria.maxLevel,
       hideExcluded: true,
@@ -458,7 +460,8 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
   Widget _buildItem(Map<String, dynamic> item) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    final List<dynamic> subentries = item['children'] ?? [];
+    List<Map<String, dynamic>> subentries = item['children'].toList() ?? [];
+    subentries.sort((a, b) => a['level'].compareTo(b['level']));
     final List<String> descriptions = parseMarkdown(item) ?? [''];
     final pureCollection = subentries.every(
       (subItem) => !_dbService.isUniform(item['name'], subItem['name']),
@@ -683,7 +686,6 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
       ],
     );
   }
-
 
   Widget _buildTraitPlate(String trait) {
     final colorScheme = Theme.of(context).colorScheme;
