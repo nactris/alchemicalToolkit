@@ -77,8 +77,6 @@ class DatabaseService {
       },
     );
   }
-  // Formula price
-  //[0.5, 1, 2, 3, 5, 8, 13, 18, 25, 35, 50, 70, 100, 150, 225, 325, 500, 750, 1200, 2000, 3500]
 
   Future<List<String>> getAllTraits() async {
     final db = await database;
@@ -313,6 +311,18 @@ class DatabaseService {
       whereArgs: [id],
     );
     return ans.map((item) => item['trait'].toString()).toList();
+  }
+
+  Future<Map<String, dynamic>> getTraitInfo({required String trait}) async {
+    final db = await database;
+
+    final ans = await db.query(
+      'trait_info',
+      columns: ['name', 'markdown', 'text', 'url'],
+      where: 'name = ?',
+      whereArgs: [trait],
+    );
+    return ans.first;
   }
 
   Future<List<Map<String, dynamic>>> searchItems({

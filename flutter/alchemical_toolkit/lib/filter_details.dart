@@ -37,6 +37,7 @@ class FilterPanel extends StatefulWidget {
 
 class _FilterPanelState extends State<FilterPanel> {
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _summaryController = TextEditingController();
   final TextEditingController _maximumValueControler = TextEditingController();
   final TextEditingController _minimumValueControler = TextEditingController();
   final SearchController _keywordController = SearchController();
@@ -64,6 +65,7 @@ class _FilterPanelState extends State<FilterPanel> {
   void _clearFilters() {
     setState(() {
       _nameController.clear();
+      _summaryController.clear();
     });
     widget.criteria.reset();
     _updateCriteria();
@@ -88,7 +90,7 @@ class _FilterPanelState extends State<FilterPanel> {
               child: Column(
                 crossAxisAlignment: .start,
                 children: [
-                  _buildSearchInput(),
+                  _buildSearchName(),
                   const SizedBox(height: 12),
 
                   Row(
@@ -152,6 +154,8 @@ class _FilterPanelState extends State<FilterPanel> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  _buildSearchSummary(),
                 ],
               ),
             ),
@@ -161,7 +165,7 @@ class _FilterPanelState extends State<FilterPanel> {
     );
   }
 
-  Widget _buildSearchInput() {
+  Widget _buildSearchName() {
     final colorScheme = Theme.of(context).colorScheme;
     return TextField(
       controller: _nameController,
@@ -172,6 +176,36 @@ class _FilterPanelState extends State<FilterPanel> {
       },
       decoration: InputDecoration(
         hintText: 'Search Name',
+        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
+        prefixIcon: Icon(
+          Icons.search,
+          size: 16,
+          color: colorScheme.onSurfaceVariant,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: colorScheme.inversePrimary, width: 2),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: colorScheme.inversePrimary, width: 2),
+          borderRadius: BorderRadius.circular(6),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchSummary() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return TextField(
+      controller: _summaryController,
+      style: TextStyle(fontSize: 12, color: colorScheme.onSurface),
+      onChanged: (val) {
+        widget.criteria.summary = val.trim().isEmpty ? null : val.trim();
+        _updateCriteria();
+      },
+      decoration: InputDecoration(
+        hintText: 'Search Description',
         hintStyle: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
         prefixIcon: Icon(
           Icons.search,
@@ -250,7 +284,9 @@ class _FilterPanelState extends State<FilterPanel> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  (options[widget.criteria.subcategory] ?? '').isNotEmpty ? options[widget.criteria.subcategory] ?? "Category" : "Category",
+                  (options[widget.criteria.subcategory] ?? '').isNotEmpty
+                      ? options[widget.criteria.subcategory] ?? "Category"
+                      : "Category",
                   style: TextStyle(fontSize: 12, color: colorScheme.onSurface),
                 ),
                 const Spacer(),

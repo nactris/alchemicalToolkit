@@ -1,5 +1,4 @@
 import 'package:alchemical_toolkit/file_service.dart';
-import 'package:alchemical_toolkit/theme_color_grid.dart';
 import 'database_service.dart';
 import 'filter_details.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +7,16 @@ import 'package:uuid/uuid.dart';
 import 'book_details.dart';
 import 'dart:io';
 import 'package:url_launcher/url_launcher.dart';
+
+//TODO add better formula sidepanel (descriptions, button to remove)
+//TODO check </li><li> in sargassum phial weird spaces in some things
+//TODO add free filter
+
+//TODO description search - done
+//TODO search in free does not work - done
+//TODO removing from book does not remove free  - done
+//TODO add display of traits - done
+
 
 var uuidGen = Uuid();
 
@@ -21,6 +30,7 @@ class ArchivistMainScreen extends StatefulWidget {
 
 class FilterCriteria {
   String? name;
+  String? summary;
   bool knownOnly;
   String sortBy;
   bool ascending;
@@ -46,6 +56,7 @@ class FilterCriteria {
 
   void reset() {
     name = null;
+    summary = null;
     knownOnly = false;
     selectedTraits.clear();
     selectedKeywords.clear();
@@ -100,6 +111,7 @@ class FormulaBook {
   void change(String id) {
     if (formulae.contains(id)) {
       formulae.remove(id);
+      removeFree(id);
     } else {
       formulae.add(id);
     }
@@ -147,6 +159,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
   final _fService = FileService();
 
   List<Map<String, dynamic>> _queriedCatalogItems = [];
+  List<Map<String, dynamic>> _queriedTraits = [];
   List<String> _traits = [];
   bool _isLoading = false;
   final FilterCriteria _criteria = FilterCriteria();
@@ -276,6 +289,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     };
     final items = await _dbService.searchItems(
       name: criteria.name,
+      summary: criteria.summary,
       subcategory: criteria.subcategory.isNotEmpty
           ? criteria.subcategory
           : null,
@@ -288,7 +302,14 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
       keywords: criteria.selectedKeywords.toList(),
       //summary:,
     );
+    final traits = await Future.wait(
+      (await _dbService.getAllTraits()).map((e) async {
+        return await _dbService.getTraitInfo(trait: e);
+      }),
+    );
+
     setState(() {
+      _queriedTraits = traits;
       _queriedCatalogItems = _criteria.knownOnly
           ? items.where((item) => _formulaBook.contains(item["id"])).toList()
           : items;
@@ -705,24 +726,44 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
         ? Colors.deepPurpleAccent
         : colorScheme.onPrimaryFixed;
 
-    return Container(
-      padding: const EdgeInsets.only(left: 4, right: 4, top: 2, bottom: 2),
-      decoration: BoxDecoration(
-        border: Border.all(color: frameColor, width: 1),
-        borderRadius: BorderRadius.circular(6),
+    return Tooltip(
+      message:
+          _queriedTraits.firstWhere((e) => e['name'] == trait)['text'] ?? '',
+      triggerMode:
+          TooltipTriggerMode.longPress, // Optional: adjust how it triggers
+      child: Material(
         color: bgColor,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            onTap: () {},
-            child: Text(
-              trait,
-              style: TextStyle(fontSize: 12, color: colorScheme.onSurface),
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: frameColor, width: 1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: InkWell(
+          onTap: () {
+            final t = _queriedTraits.firstWhere((e) => e['name'] == trait);
+            if (t != null) {}
+            _handleLinkClick(trait, t['url'], trait);
+          },
+          borderRadius: BorderRadius.circular(
+            6,
+          ), // Keeps the ripple inside the borders
+          child: Padding(
+            padding: const EdgeInsets.only(
+              left: 4,
+              right: 4,
+              top: 2,
+              bottom: 2,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  trait,
+                  style: TextStyle(fontSize: 12, color: colorScheme.onSurface),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -937,7 +978,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final int gp = _totalPrice.floor();
     final int sp = ((_totalPrice - gp) * 10).round();
-    final price = (gp > 0 ? "$gp gp" : "") + (sp > 0 ? "$sp sp" : "");
+    final price = (gp > 0 ? "$gp gp" : "") + (sp > 0 ? " $sp sp" : "");
 
     //final int fgp = _freePrice.floor();
     //final int fsp = ((_freePrice - fgp) * 10).round();

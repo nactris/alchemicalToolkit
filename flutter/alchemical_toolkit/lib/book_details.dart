@@ -325,10 +325,10 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                   final query = controller.text.toLowerCase();
 
                   final filtered = avaiableFormulae
-                      .where((formula) {
-                        return formula.toLowerCase().contains(query);
-                      })
                       .map((item) => getItemDetails(item))
+                      .where((formula) {
+                        return formula['name'].toLowerCase().contains(query);
+                      })
                       .toList();
 
                   filtered.sort(
