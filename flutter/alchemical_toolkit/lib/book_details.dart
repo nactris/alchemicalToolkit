@@ -153,9 +153,13 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
           padding: EdgeInsets.only(top: 18, bottom: 16, left: 8, right: 8),
           child: Column(
             children: [
-              ...List.generate(
-                currentSlots * 2,
-                (slotIndex) => (slotIndex % 2 == 1)
+              ...List.generate(currentSlots * 2, (slotIndex) {
+                final details = getItemDetails(
+                  widget.formulaBook.free[parsedIndex]?[(slotIndex / 2)
+                          .toInt()] ??
+                      "none",
+                );
+                return (slotIndex % 2 == 1)
                     ? SizedBox(height: 4)
                     : SizedBox(
                         width: double.infinity,
@@ -163,63 +167,57 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                           decoration: BoxDecoration(
                             color: colorScheme.onPrimaryFixedVariant,
                             borderRadius: BorderRadius.circular(8),
-                            // border: Border.all(
-                            //   color: colorScheme.onPrimaryFixedVariant,
-                            //    width: 1,
-                            //  ),
+                 
                           ),
-                          child: TextButton(
-                            onPressed: () {
-                              widget.formulaBook.removeFree(
-                                widget
-                                        .formulaBook
-                                        .free[parsedIndex]?[(slotIndex / 2)
-                                        .toInt()] ??
-                                    "",
-                              );
-                              _updateBook(true);
-                            },
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(
-                                color: colorScheme.onPrimaryFixedVariant,
-                                width: 2,
-                              ),
+                          child: Tooltip(
+                            constraints: BoxConstraints(maxWidth: 600),
+                            message: details['summary']??"",
+                            triggerMode: TooltipTriggerMode.longPress,
+                            child: TextButton(
+                              onPressed: () {
+                                widget.formulaBook.removeFree(
+                                  widget
+                                          .formulaBook
+                                          .free[parsedIndex]?[(slotIndex / 2)
+                                          .toInt()] ??
+                                      "",
+                                );
+                                _updateBook(true);
+                              },
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(
+                                  color: colorScheme.onPrimaryFixedVariant,
+                                  width: 2,
+                                ),
 
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
                               ),
-                            ),
-                            child: Row(
-                              children: [
-                                Text(
-                                  getItemDetails(
-                                        widget
-                                                .formulaBook
-                                                .free[parsedIndex]?[(slotIndex /
-                                                    2)
-                                                .toInt()] ??
-                                            "none",
-                                      )['name'] ??
-                                      "Unknown Name",
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: colorScheme.onSurfaceVariant,
+                              child: Row(
+                                children: [
+                                  Text(
+                                    details['name'] ?? "Unknown Name",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
                                   ),
-                                ),
-                                const Spacer(),
-                                Text(
-                                  "Level ${getItemDetails(widget.formulaBook.free[parsedIndex]?[(slotIndex / 2).toInt()] ?? "none")['level'] ?? "Unknown Level"}",
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: colorScheme.onSurfaceVariant,
+                                  const Spacer(),
+                                  Text(
+                                    "Level ${getItemDetails(widget.formulaBook.free[parsedIndex]?[(slotIndex / 2).toInt()] ?? "none")['level'] ?? "Unknown Level"}",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-              ),
+                      );
+              }),
               if (currentSlots < totalSlots)
                 _buildFreeFormulaSelection(
                   label:

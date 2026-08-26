@@ -9,14 +9,8 @@ import 'dart:io';
 import 'package:url_launcher/url_launcher.dart';
 
 //TODO add better formula sidepanel (descriptions, button to remove)
-//TODO check </li><li> in sargassum phial weird spaces in some things
+
 //TODO add free filter
-
-//TODO description search - done
-//TODO search in free does not work - done
-//TODO removing from book does not remove free  - done
-//TODO add display of traits - done
-
 
 var uuidGen = Uuid();
 
@@ -727,44 +721,47 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
         : colorScheme.onPrimaryFixed;
 
     return Tooltip(
+      constraints: BoxConstraints(maxWidth: 600),
       message:
           _queriedTraits.firstWhere((e) => e['name'] == trait)['text'] ?? '',
-      triggerMode:
-          TooltipTriggerMode.longPress, // Optional: adjust how it triggers
+      triggerMode: TooltipTriggerMode.longPress,
       child: Material(
-        color: bgColor,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(color: frameColor, width: 1),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: InkWell(
-          onTap: () {
-            final t = _queriedTraits.firstWhere((e) => e['name'] == trait);
-            if (t != null) {}
-            _handleLinkClick(trait, t['url'], trait);
-          },
-          borderRadius: BorderRadius.circular(
-            6,
-          ), // Keeps the ripple inside the borders
-          child: Padding(
-            padding: const EdgeInsets.only(
-              left: 4,
-              right: 4,
-              top: 2,
-              bottom: 2,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  trait,
-                  style: TextStyle(fontSize: 12, color: colorScheme.onSurface),
-                ),
-              ],
+          color: bgColor,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: frameColor, width: 1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: InkWell(
+            onTap: () {
+              final t = _queriedTraits.firstWhere((e) => e['name'] == trait);
+              _handleLinkClick(trait, t['url'], trait);
+            },
+            borderRadius: BorderRadius.circular(
+              6,
+            ), 
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: 4,
+                right: 4,
+                top: 2,
+                bottom: 2,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    trait,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
+      
     );
   }
 
@@ -1042,6 +1039,17 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     }
   }
 
+  String formatLists(Match matchObj) {
+    final listText = matchObj.group(1)?.trim() ?? '';
+    int i = 1;
+    final items = RegExp(r'<li>\s*(.*?)\s*</li>', dotAll: true)
+        .allMatches(listText)
+        .toList()
+        .map((m) => '\n${i++}. ${m.group(1)!}')
+        .toList();
+    return items.join();
+  }
+
   String? findActionType(String markdown) {
     final actionsRegex = RegExp(
       r'<row gap="tiny">\s*<row>\*\*Activate\*\*</row>\s*<actions\b[^>]*/>\s*<row>([^<]+)</row>\s*</row>',
@@ -1067,16 +1075,16 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     for (final match in blockRegex.allMatches(descriptions)) {
       String text = match.group(1)?.trim() ?? '';
 
-      // text = text.replaceAllMapped(linkRegex, (Match m) {
-      //   final textContent = m.group(1);
-      //   final urlPath = m.group(2);
-      //   return '[$textContent](https://2e.aonprd.com/$urlPath)';
-      // });
       parsedDescriptions.add(text);
     }
     parsedDescriptions = parsedDescriptions.map((text) {
       String modifiedText = text.replaceAllMapped(actionsRegex, formatActions);
       modifiedText = modifiedText.replaceAll('<br />', '\n');
+      modifiedText = text.replaceAllMapped(
+        RegExp(r'<ol>(.*?)</ol>', dotAll: true),
+        formatLists,
+      );
+
       return modifiedText;
     }).toList();
     return parsedDescriptions;

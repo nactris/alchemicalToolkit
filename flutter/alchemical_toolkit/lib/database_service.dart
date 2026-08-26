@@ -22,6 +22,7 @@ class DatabaseService {
           CREATE TABLE items (
             id TEXT PRIMARY KEY,
             name TEXT,
+            summary TEXT,
             level SMALLINT,
             subcategory TEXT,
             primary_source TEXT,
@@ -193,6 +194,7 @@ class DatabaseService {
         await txn.insert('items', {
           'id': source['id'] ?? 'invalidId',
           'name': source['name'] ?? 'invalidName',
+          'summary': source['summary'] ?? 'invalidSummary',
           'level': source['level'] ?? 0,
           'subcategory': source['item_subcategory'] ?? 'invalid',
           'primary_source': source['primary_source'] ?? 'invalid',

@@ -99,7 +99,7 @@ final Map<String, Color> themeColors = {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black,
                 width: 1,
               ),
             ),
@@ -121,7 +121,7 @@ final Map<String, Color> themeColors = {
                   Text(
                     hexCode,
                     style: TextStyle(
-                      color: textColor.withOpacity(0.8),
+                      color: textColor,
                       fontSize: 12,
                       fontFamily: 'monospace',
                     ),
