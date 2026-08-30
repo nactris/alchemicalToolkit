@@ -197,7 +197,7 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                               child: Row(
                                 children: [
                                   Text(
-                                    details['name'] ?? "Unknown Name",
+                                    details['name'] ?? "Unknown",
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: colorScheme.onSurfaceVariant,
@@ -205,7 +205,7 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                                   ),
                                   const Spacer(),
                                   Text(
-                                    "Level ${getItemDetails(widget.formulaBook.free[parsedIndex]?[(slotIndex / 2).toInt()] ?? "none")['level'] ?? "Unknown Level"}",
+                                    "Level ${getItemDetails(widget.formulaBook.free[parsedIndex]?[(slotIndex / 2).toInt()] ?? "none")['level'] ?? "Unknown"}",
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: colorScheme.onSurfaceVariant,

@@ -9,7 +9,6 @@ import 'dart:io';
 import 'package:url_launcher/url_launcher.dart';
 
 //TODO add better formula sidepanel (descriptions, button to remove)
-
 //TODO add free filter
 
 var uuidGen = Uuid();
@@ -662,8 +661,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
 
             ...subentries.asMap().entries.map((entry) {
               final int subIndex = entry.key;
-              final Map<String, dynamic> subItem =
-                  entry.value as Map<String, dynamic>;
+              final Map<String, dynamic> subItem = entry.value;
               final int descIndex = subIndex + 1;
 
               final String? subDesc = descIndex < descriptions.length
@@ -726,42 +724,36 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
           _queriedTraits.firstWhere((e) => e['name'] == trait)['text'] ?? '',
       triggerMode: TooltipTriggerMode.longPress,
       child: Material(
-          color: bgColor,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(color: frameColor, width: 1),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: InkWell(
-            onTap: () {
-              final t = _queriedTraits.firstWhere((e) => e['name'] == trait);
-              _handleLinkClick(trait, t['url'], trait);
-            },
-            borderRadius: BorderRadius.circular(
-              6,
-            ), 
-            child: Padding(
-              padding: const EdgeInsets.only(
-                left: 4,
-                right: 4,
-                top: 2,
-                bottom: 2,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    trait,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                ],
-              ),
+        color: bgColor,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: frameColor, width: 1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: InkWell(
+          onTap: () {
+            final t = _queriedTraits.firstWhere((e) => e['name'] == trait);
+            _handleLinkClick(trait, t['url'], trait);
+          },
+          borderRadius: BorderRadius.circular(6),
+          child: Padding(
+            padding: const EdgeInsets.only(
+              left: 4,
+              right: 4,
+              top: 2,
+              bottom: 2,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  trait,
+                  style: TextStyle(fontSize: 12, color: colorScheme.onSurface),
+                ),
+              ],
             ),
           ),
         ),
-      
+      ),
     );
   }
 
