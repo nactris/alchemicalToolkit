@@ -1026,8 +1026,10 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
         return '`4` ';
       case 'Reaction':
         return '`5` ';
+        case 'Single Action or Two Actions':
+        return '`1` or `2` ';
       default:
-        return '';
+        return matchObj.group(0).toString();
     }
   }
 
@@ -1070,13 +1072,15 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
       parsedDescriptions.add(text);
     }
     parsedDescriptions = parsedDescriptions.map((text) {
-      String modifiedText = text.replaceAllMapped(actionsRegex, formatActions);
-      modifiedText = modifiedText.replaceAll('<br />', '\n');
-      modifiedText = text.replaceAllMapped(
-        RegExp(r'<ol>(.*?)</ol>', dotAll: true),
-        formatLists,
-      );
+      String modifiedText = text
+          .replaceAllMapped(actionsRegex, formatActions)
+          .replaceAllMapped(
+            RegExp(r'<ol>(.*?)</ol>', dotAll: true),
+            formatLists,
+          )
+          .replaceAll("<br />", '\n');
 
+      //print(modifiedText);
       return modifiedText;
     }).toList();
     return parsedDescriptions;

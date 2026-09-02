@@ -755,6 +755,7 @@ class _FilterPanelState extends State<FilterPanel> {
           horizontal: 12,
           vertical: 16,
         ),
+
         floatingLabelAlignment: FloatingLabelAlignment.start,
         floatingLabelStyle: TextStyle(
           fontSize: 14,
@@ -770,55 +771,31 @@ class _FilterPanelState extends State<FilterPanel> {
           borderRadius: BorderRadius.circular(6),
         ),
       ),
-      child: Platform.isAndroid || Platform.isIOS
-          ? SizedBox(
-              height: 32,
-              child: ListWheelScrollView.useDelegate(
-                itemExtent: 30,
-                perspective: 0.003,
-                diameterRatio: 1.5,
-                physics: const FixedExtentScrollPhysics(),
-                onSelectedItemChanged: (index) {
-                  //print(index + (min ?? 0));
-                },
-                childDelegate: ListWheelChildBuilderDelegate(
-                  childCount: (max ?? 20) - (min ?? 0) + 1,
-                  builder: (context, index) {
-                    return Center(
-                      child: Text(
-                        '${index + (min ?? 0)}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            )
-          : DropdownButtonHideUnderline(
-              child: DropdownButton<int>(
-                value: currentValue,
-                isDense: true,
-                style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
-                items:
-                    List.generate(
-                      (max ?? 20) - (min ?? 0) + 1,
-                      (index) => (min ?? 0) + index,
-                    ).map((number) {
-                      return DropdownMenuItem<int>(
-                        value: number,
-                        child: Text(
-                          '$number',
-                          style: TextStyle(color: colorScheme.onSurfaceVariant),
-                        ),
-                      );
-                    }).toList(),
-                onChanged: (newValue) {
-                  if (newValue != null) {
-                    onChanged(newValue);
-                  }
-                },
-              ),
-            ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: currentValue,
+          isDense: true,
+          style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
+          items:
+              List.generate(
+                (max ?? 20) - (min ?? 0) + 1,
+                (index) => (min ?? 0) + index,
+              ).map((number) {
+                return DropdownMenuItem<int>(
+                  value: number,
+                  child: Text(
+                    '$number',
+                    style: TextStyle(color: colorScheme.onSurfaceVariant),
+                  ),
+                );
+              }).toList(),
+          onChanged: (newValue) {
+            if (newValue != null) {
+              onChanged(newValue);
+            }
+          },
+        ),
+      ),
     );
   }
 }

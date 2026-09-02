@@ -37,6 +37,7 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
   @override
   void dispose() {
     _nameController.dispose();
+    _slotControllers.forEach((e) => e.dispose());
     super.dispose();
   }
 
@@ -167,11 +168,10 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
                           decoration: BoxDecoration(
                             color: colorScheme.onPrimaryFixedVariant,
                             borderRadius: BorderRadius.circular(8),
-                 
                           ),
                           child: Tooltip(
                             constraints: BoxConstraints(maxWidth: 600),
-                            message: details['summary']??"",
+                            message: details['summary'] ?? "",
                             triggerMode: TooltipTriggerMode.longPress,
                             child: TextButton(
                               onPressed: () {
