@@ -487,6 +487,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
         ? "`${item['actions']}` "
         : '';
     final formatedActivation = findActionType(item['markdown']);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8.0),
       decoration: BoxDecoration(
@@ -1026,10 +1027,10 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
         return '`4` ';
       case 'Reaction':
         return '`5` ';
-        case 'Single Action or Two Actions':
+      case 'Single Action or Two Actions':
         return '`1` or `2` ';
       default:
-        return matchObj.group(0).toString();
+        return actionType;
     }
   }
 
@@ -1049,7 +1050,13 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
       r'<row gap="tiny">\s*<row>\*\*Activate\*\*</row>\s*<actions\b[^>]*/>\s*<row>([^<]+)</row>\s*</row>',
       dotAll: true,
     );
-    return actionsRegex.firstMatch(markdown)?.group(1);
+    final actionsRegexFallback = RegExp(
+      r'<row gap="tiny">\s*<row>\*\*Activate\*\*</row>\s*<row>([^<]+)</row>\s*</row>',
+      dotAll: true,
+    );
+    final out = actionsRegex.firstMatch(markdown)?.group(1);
+
+    return out ?? actionsRegexFallback.firstMatch(markdown)?.group(1);
   }
 
   List<String>? parseMarkdown(Map<String, dynamic> item) {
@@ -1080,7 +1087,6 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
           )
           .replaceAll("<br />", '\n');
 
-      //print(modifiedText);
       return modifiedText;
     }).toList();
     return parsedDescriptions;
