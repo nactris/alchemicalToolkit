@@ -1036,6 +1036,15 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
 
   String formatLists(Match matchObj) {
     final listText = matchObj.group(1)?.trim() ?? '';
+    final items = RegExp(r'<li>\s*(.*?)\s*</li>', dotAll: true)
+        .allMatches(listText)
+        .toList()
+        .map((m) => '\n- ${m.group(1)!}')
+        .toList();
+    return items.join();
+  }
+    String formatEnums(Match matchObj) {
+    final listText = matchObj.group(1)?.trim() ?? '';
     int i = 1;
     final items = RegExp(r'<li>\s*(.*?)\s*</li>', dotAll: true)
         .allMatches(listText)
@@ -1060,6 +1069,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
   }
 
   List<String>? parseMarkdown(Map<String, dynamic> item) {
+    print(item['markdown']);
     final String descriptions = item['markdown']?.toString() ?? '';
 
     final blockRegex = RegExp(
@@ -1083,6 +1093,10 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
           .replaceAllMapped(actionsRegex, formatActions)
           .replaceAllMapped(
             RegExp(r'<ol>(.*?)</ol>', dotAll: true),
+            formatEnums,
+          )
+          .replaceAllMapped(
+            RegExp(r'<ul>(.*?)</ul>', dotAll: true),
             formatLists,
           )
           .replaceAll("<br />", '\n');
