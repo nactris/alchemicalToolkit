@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 //TODO add better formula sidepanel (descriptions, button to remove)
 //TODO add free filter
+//TODO export filtered, copy field?
 
 var uuidGen = Uuid();
 
@@ -359,41 +360,43 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isMobile = screenWidth < 800;
     //return ThemeColorGrid();
-    return Scaffold(
-      body: Scaffold(
-        backgroundColor: Colors.transparent,
-        drawerEdgeDragWidth: MediaQuery.of(context).size.width / 3,
-        drawer: _buildLeftDrawer(),
-        endDrawer: _buildRightDrawer(),
-        body: SafeArea(
-          child: isMobile
-              ? _buildCatalog() // Mobile layout
-              : Row(
-                  // Desktop Layout
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 300,
-                      child: FilterPanel(
-                        traits: _traits,
-                        criteria: _criteria,
-                        onChanged: _handleFilterChange,
+    return SafeArea(
+      child: Scaffold(
+        body: Scaffold(
+          backgroundColor: Colors.transparent,
+          drawerEdgeDragWidth: MediaQuery.of(context).size.width / 3,
+          drawer: _buildLeftDrawer(),
+          endDrawer: _buildRightDrawer(),
+          body: SafeArea(
+            child: isMobile
+                ? _buildCatalog() // Mobile layout
+                : Row(
+                    // Desktop Layout
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 300,
+                        child: FilterPanel(
+                          traits: _traits,
+                          criteria: _criteria,
+                          onChanged: _handleFilterChange,
+                        ),
                       ),
-                    ),
-                    Expanded(child: _buildCatalog()),
-                    SizedBox(
-                      width: 300,
-                      child: FormulaBookDetails(
-                        formulaBook: _formulaBook,
-                        onChanged: _handleBookChange,
-                        cachedItems: _cachedItems,
+                      Expanded(child: _buildCatalog()),
+                      SizedBox(
+                        width: 300,
+                        child: FormulaBookDetails(
+                          formulaBook: _formulaBook,
+                          onChanged: _handleBookChange,
+                          cachedItems: _cachedItems,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+          ),
         ),
+        bottomNavigationBar: _buildBottomBar(),
       ),
-      bottomNavigationBar: _buildBottomBar(),
     );
   }
 
@@ -1036,14 +1039,14 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
 
   String formatLists(Match matchObj) {
     final listText = matchObj.group(1)?.trim() ?? '';
-    final items = RegExp(r'<li>\s*(.*?)\s*</li>', dotAll: true)
-        .allMatches(listText)
-        .toList()
-        .map((m) => '\n- ${m.group(1)!}')
-        .toList();
+    final items = RegExp(
+      r'<li>\s*(.*?)\s*</li>',
+      dotAll: true,
+    ).allMatches(listText).toList().map((m) => '\n- ${m.group(1)!}').toList();
     return items.join();
   }
-    String formatEnums(Match matchObj) {
+
+  String formatEnums(Match matchObj) {
     final listText = matchObj.group(1)?.trim() ?? '';
     int i = 1;
     final items = RegExp(r'<li>\s*(.*?)\s*</li>', dotAll: true)
