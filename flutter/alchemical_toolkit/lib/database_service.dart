@@ -277,6 +277,8 @@ class DatabaseService {
               "Drained",
               "Enfeebled",
               "Stupefied",
+              "Sickened",
+              "Slowed",
             ]
             .where(
               (word) => description.toLowerCase().contains(word.toLowerCase()),

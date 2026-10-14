@@ -36,6 +36,7 @@ class FilterCriteria {
 
   FilterCriteria({
     this.name,
+    this.summary,
     this.sortBy = 'level',
     this.subcategory = '',
     this.ascending = true,
@@ -357,8 +358,13 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
 
   @override
   Widget build(BuildContext context) {
+
+  
+
     final screenWidth = MediaQuery.of(context).size.width;
-    final bool isMobile = screenWidth < 800;
+     final bool isMobile =
+        Platform.isAndroid || Platform.isIOS;
+    final bool isThin = screenWidth < 900;
     //return ThemeColorGrid();
     return SafeArea(
       child: Scaffold(
@@ -368,7 +374,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
           drawer: _buildLeftDrawer(),
           endDrawer: _buildRightDrawer(),
           body: SafeArea(
-            child: isMobile
+            child: isMobile || isThin
                 ? _buildCatalog() // Mobile layout
                 : Row(
                     // Desktop Layout
@@ -528,6 +534,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
                   //print(item['traits']),
                   if (!pureCollection || subentries.isEmpty)
                     {
+                      //print(descriptions),
                       _formulaBook.change(item["id"]),
                       setState(() {}),
                       _handleBookChange(_formulaBook, true),
@@ -1072,9 +1079,7 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
   }
 
   List<String>? parseMarkdown(Map<String, dynamic> item) {
-    print(item['markdown']);
     final String descriptions = item['markdown']?.toString() ?? '';
-
     final blockRegex = RegExp(
       r'<title.*?<\/column>.*?.(?:\s*?---\s*)?(.*?)(?=<c|<t|$)',
       dotAll: true,
@@ -1102,7 +1107,8 @@ class _ArchivistMainScreenState extends State<ArchivistMainScreen> {
             RegExp(r'<ul>(.*?)</ul>', dotAll: true),
             formatLists,
           )
-          .replaceAll("<br />", '\n');
+          .replaceAll("<br />", '\n')
+          .replaceAll("<br/>", '\n\n');
 
       return modifiedText;
     }).toList();

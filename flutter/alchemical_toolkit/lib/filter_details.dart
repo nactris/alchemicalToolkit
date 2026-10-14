@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'layout.dart';
-import 'dart:io';
 
 class FilterPanel extends StatefulWidget {
   final Function(FilterCriteria criteria) onChanged;
@@ -28,6 +27,8 @@ class FilterPanel extends StatefulWidget {
       "Drained",
       "Enfeebled",
       "Stupefied",
+      "Sickened",
+      "Slowed",
     ],
   });
 
@@ -46,6 +47,8 @@ class _FilterPanelState extends State<FilterPanel> {
   @override
   void initState() {
     super.initState();
+    _nameController.text = widget.criteria.name ?? '';
+    _summaryController.text = widget.criteria.summary ?? '';
   }
 
   @override
@@ -534,6 +537,7 @@ class _FilterPanelState extends State<FilterPanel> {
           _traitController.closeView(selected);
         }
       },
+
       suggestionsBuilder: (context, controller) {
         final query = controller.text.toLowerCase();
 
@@ -638,6 +642,7 @@ class _FilterPanelState extends State<FilterPanel> {
       isFullScreen: false,
       searchController: _keywordController,
       viewBackgroundColor: colorScheme.onSecondary,
+
       builder: (context, controller) {
         return InkWell(
           onTap: widget.keywords.isNotEmpty ? controller.openView : null,

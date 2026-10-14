@@ -37,7 +37,9 @@ class _FormulaBookDetailsState extends State<FormulaBookDetails> {
   @override
   void dispose() {
     _nameController.dispose();
-    _slotControllers.forEach((e) => e.dispose());
+    for (var e in _slotControllers) {
+      e.dispose();
+    }
     super.dispose();
   }
 
